@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="es" class="h-full bg-zinc-950 text-zinc-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartCrop Pro - Alpine.js</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cropper.css -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"
+    />
+    <!-- Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- JSZip (for downloading all in a ZIP file) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Cropper.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <!-- Alpine.js (Defer to initialize correctly) -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .cropper-view-box,
+      .cropper-face {
+        border-radius: 4px;
+      }
+      .cropper-line,
+      .cropper-point {
+        background-color: #6366f1;
+      }
+      .cropper-bg {
+        background-image:
+          repeating-linear-gradient(
+            45deg,
+            #18181b 25%,
+            transparent 25%,
+            transparent 75%,
+            #18181b 75%,
+            #18181b
+          ),
+          repeating-linear-gradient(
+            45deg,
+            #18181b 25%,
+            #27272a 25%,
+            #27272a 75%,
+            #18181b 75%,
+            #18181b
+          );
+        background-position:
+          0 0,
+          10px 10px;
+        background-size: 20px 20px;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #09090b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #27272a;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3f3f46;
+      }
+    </style>
+  </head>
+  <body
+    x-data="cropApp"
+    class="h-full flex flex-col overflow-hidden selection:bg-indigo-500/30 selection:text-indigo-200"
+  >
+    <!-- Header -->
+    <header
+      class="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md px-6 py-4 flex items-center justify-between shrink-0 z-10"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="bg-indigo-600 text-white p-2 rounded-lg shadow-lg shadow-indigo-500/10"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+            <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-semibold tracking-tight text-white">
+            SmartCrop
+          </h1>
+          <p class="text-[11px] text-zinc-400">
+            Recortador inteligente y adaptativo con Alpine.js
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-zinc-500">Formato:</span>
+        <select
+          x-model="exportFormat"
+          class="bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="image/webp">WEBP Optimizado</option>
+          <option value="image/jpeg">JPG Optimizado</option>
+          <option value="image/png">PNG Optimizado</option>
+        </select>
+        <div class="h-4 w-px bg-zinc-800"></div>
+        <div class="flex items-center gap-1 text-xs text-zinc-400">
+          <span>Calidad:</span>
+          <input
+            x-model.number="exportQuality"
+            type="range"
+            min="10"
+            max="100"
+            class="w-20 accent-indigo-500 bg-zinc-800 h-1 rounded-lg appearance-none cursor-pointer"
+          />
+          <span
+            class="w-7 text-right font-semibold text-zinc-300"
+            x-text="exportQuality + '%'"
+          ></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden min-h-0">
+      <!-- Sidebar -->
+      <aside
+        class="w-80 border-r border-zinc-800 bg-zinc-950 flex flex-col shrink-0"
+      >
+        <!-- Target size inputs -->
+        <div class="p-4 border-b border-zinc-900 bg-zinc-900/20">
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3"
+          >
+            Dimensiones Objetivo
+          </h2>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[10px] text-zinc-500 block mb-1"
+                >Ancho (px)</label
+              >
+              <input
+                x-model.number="targetWidth"
+                type="number"
+                min="10"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center"
+              />
+            </div>
+            <div>
+              <label class="text-[10px] text-zinc-500 block mb-1"
+                >Alto (px)</label
+              >
+              <input
+                x-model.number="targetHeight"
+                type="number"
+                min="10"
+                class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-center"
+              />
+            </div>
+          </div>
+          <!-- Presets Rápidos -->
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <button
+              @click="targetWidth = 295; targetHeight = 320"
+              class="text-[9px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Default (295x320)
+            </button>
+            <button
+              @click="targetWidth = 500; targetHeight = 500"
+              class="text-[9px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Cuadrado (1:1)
+            </button>
+            <button
+              @click="targetWidth = 1080; targetHeight = 1350"
+              class="text-[9px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+            >
+              Retrato (4:5)
+            </button>
+          </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="p-4 border-b border-zinc-900">
+          <div
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="dragOver = false; handleFiles($event.dataTransfer.files)"
+            :class="dragOver ? 'border-indigo-500 bg-zinc-900/60 shadow-lg' : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/30'"
+            class="border border-dashed transition-all duration-200 rounded-lg p-5 flex flex-col items-center justify-center text-center cursor-pointer relative"
+            x-data="{ dragOver: false }"
+          >
+            <input
+              type="file"
+              @change="handleFiles($event.target.files)"
+              multiple
+              accept="image/*"
+              class="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            <div class="text-zinc-500 mb-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-8 h-8 mx-auto stroke-[1.5]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-zinc-300"
+              >Arrastra tus fotos aquí</span
+            >
+            <span class="text-[10px] text-zinc-500 mt-1"
+              >Soporta múltiples imágenes</span
+            >
+          </div>
+        </div>
+
+        <!-- List Section -->
+        <div class="px-4 py-2 flex items-center justify-between text-zinc-400">
+          <span class="text-[11px] font-semibold uppercase tracking-wider"
+            >Archivos (<span x-text="images.length"></span>)</span
+          >
+          <button
+            @click="clearAll"
+            x-show="images.length > 0"
+            class="text-[10px] text-zinc-500 hover:text-red-400 transition-colors"
+          >
+            Limpiar todo
+          </button>
+        </div>
+
+        <!-- Dynamic Image List -->
+        <div class="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+          <template x-if="images.length === 0">
+            <div class="text-center py-8 text-zinc-600">
+              <p class="text-xs">No hay imágenes cargadas</p>
+            </div>
+          </template>
+
+          <template x-for="img in images" :key="img.id">
+            <div
+              :class="img.id === activeId ? 'border-indigo-500 bg-indigo-500/10 shadow-md ring-1 ring-indigo-500/30' : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/20 hover:bg-zinc-900/40'"
+              class="group relative flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all duration-200"
+            >
+              <!-- Reactive Crop Preview -->
+              <div
+                class="relative w-12 h-14 bg-zinc-950 rounded overflow-hidden border border-zinc-800 shrink-0 flex items-center justify-center"
+              >
+                <img
+                  :src="img.previewUrl"
+                  class="object-cover w-full h-full opacity-0 transition-opacity duration-300"
+                  @load="$el.classList.remove('opacity-0')"
+                />
+              </div>
+
+              <!-- Info -->
+              <div class="flex-1 min-w-0" @click="setActive(img.id)">
+                <p
+                  class="text-[11px] font-medium text-zinc-200 truncate pr-6"
+                  :title="img.name"
+                  x-text="img.name"
+                ></p>
+                <p
+                  class="text-[10px] text-zinc-500 mt-0.5"
+                  x-text="(img.file.size / 1024 / 1024).toFixed(2) + ' MB'"
+                ></p>
+              </div>
+
+              <!-- Actions -->
+              <div
+                class="absolute right-2.5 top-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              >
+                <button
+                  @click.stop="deleteImage(img.id)"
+                  class="p-1 rounded bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-red-400 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path
+                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Download Panel -->
+        <div class="p-4 border-t border-zinc-900 bg-zinc-900/10">
+          <button
+            @click="downloadZip"
+            :disabled="images.length === 0"
+            class="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:hover:bg-zinc-800 text-white font-medium text-xs py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Descargar todo en ZIP
+          </button>
+        </div>
+      </aside>
+
+      <!-- Editor Workspace -->
+      <section class="flex-1 bg-zinc-900/40 flex flex-col min-w-0">
+        <!-- Empty State -->
+        <div
+          x-show="!activeId"
+          class="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8"
+        >
+          <div
+            class="bg-zinc-900 p-4 rounded-full border border-zinc-800 mb-3 shadow-inner"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8 text-zinc-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-medium text-zinc-300">
+            Sin vista previa activa
+          </h3>
+          <p class="text-xs text-zinc-500 mt-1 text-center max-w-xs">
+            Arrastra o sube imágenes en el panel izquierdo para comenzar a
+            ajustar los recortes.
+          </p>
+        </div>
+
+        <!-- Interactive Cropper Canvas -->
+        <div
+          x-show="activeId"
+          class="flex-1 flex flex-col min-h-0 relative"
+          style="display: none"
+        >
+          <div
+            class="flex-1 min-h-0 flex items-center justify-center p-6 bg-zinc-950/20"
+          >
+            <div
+              class="w-full h-full max-h-[60vh] flex items-center justify-center"
+            >
+              <img
+                id="cropperImage"
+                class="max-w-full max-h-full block opacity-0"
+              />
+            </div>
+          </div>
+
+          <!-- Cropper Toolbar -->
+          <div
+            class="px-6 py-4 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur flex items-center justify-between shrink-0"
+          >
+            <div class="flex items-center gap-1">
+              <button
+                @click="zoom(0.1)"
+                title="Zoom +"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  <line x1="11" y1="8" x2="11" y2="14" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </button>
+              <button
+                @click="zoom(-0.1)"
+                title="Zoom -"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </button>
+              <div class="w-px h-5 bg-zinc-800 mx-1"></div>
+              <button
+                @click="rotate(-90)"
+                title="Rotar Izquierda"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1.00 10" />
+                </svg>
+              </button>
+              <button
+                @click="rotate(90)"
+                title="Rotar Derecha"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" />
+                </svg>
+              </button>
+              <div class="w-px h-5 bg-zinc-800 mx-1"></div>
+              <button
+                @click="flip('h')"
+                title="Reflejo Horizontal"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2v20" />
+                  <path d="M4 12H2" />
+                  <path d="M10 12H8" />
+                  <path d="M16 12h-2" />
+                  <path d="M22 12h-2" />
+                  <path d="M12 4l-8 8 8 8" />
+                  <path d="M12 4l8 8-8 8" />
+                </svg>
+              </button>
+              <button
+                @click="flip('v')"
+                title="Reflejo Vertical"
+                class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M22 12H2" />
+                  <path d="M12 4V2" />
+                  <path d="M12 10V8" />
+                  <path d="M12 16v-2" />
+                  <path d="M12 22v-2" />
+                  <path d="M4 12l8-8 8 8" />
+                  <path d="M4 12l8 8 8-8" />
+                </svg>
+              </button>
+              <div class="w-px h-5 bg-zinc-800 mx-1"></div>
+              <button
+                @click="reset"
+                title="Restablecer"
+                class="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <span
+                class="text-xs text-zinc-500"
+                x-text="`Salida: ${targetWidth}x${targetHeight} px`"
+              ></span>
+              <button
+                @click="downloadActive"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 px-4 rounded-md flex items-center gap-1.5 shadow-lg shadow-indigo-500/10 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Descargar este Recorte
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Overlay Loader -->
+    <div
+      x-show="loading"
+      class="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm flex flex-col items-center justify-center z-50 transition-all duration-300"
+      style="display: none"
+    >
+      <div
+        class="p-6 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col items-center text-center max-w-xs"
+      >
+        <div
+          class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-4"
+        ></div>
+        <h4 class="text-sm font-semibold text-zinc-200" x-text="loadingTitle">
+          Procesando
+        </h4>
+        <p class="text-xs text-zinc-500 mt-1" x-text="loadingDesc">
+          Por favor espera un momento...
+        </p>
+      </div>
+    </div>
+
+    <!-- Application Controller (AlpineJS Component) -->
+    <script>
+      document.addEventListener("alpine:init", () => {
+        Alpine.data("cropApp", () => ({
+          images: [],
+          activeId: null,
+          targetWidth: 295,
+          targetHeight: 320,
+          exportFormat: "image/webp",
+          exportQuality: 85,
+          cropper: null,
+          flipH: 1,
+          flipV: 1,
+          loading: false,
+          loadingTitle: "",
+          loadingDesc: "",
+
+          init() {
+            // Watchers inteligentes de Alpine.js
+            // Si el usuario cambia el ancho o el alto objetivo, recalculamos TODAS las imágenes de forma adaptativa
+            this.$watch("targetWidth", () => this.onDimensionsChange());
+            this.$watch("targetHeight", () => this.onDimensionsChange());
+            this.$watch("exportFormat", () => this.regenerateAll());
+            this.$watch("exportQuality", () => this.regenerateAllDebounced());
+          },
+
+          // Procesamiento y adaptabilidad de archivos
+          handleFiles(files) {
+            const fileArray = Array.from(files);
+            const imageFiles = fileArray.filter((f) =>
+              f.type.startsWith("image/"),
+            );
+            if (imageFiles.length === 0) return;
+
+            imageFiles.forEach((file) => {
+              const originalUrl = URL.createObjectURL(file);
+              const imgObj = {
+                id: crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : Math.random().toString(36).substring(2, 9),
+                file: file,
+                name: file.name,
+                originalUrl: originalUrl,
+                cropData: null,
+                croppedBlob: null,
+                previewUrl: null,
+              };
+              this.images.push(imgObj);
+
+              // Lógica inteligente de centrado y rellenado inicial (Cover)
+              this.generateSilentDefaultCrop(imgObj);
+            });
+
+            if (!this.activeId && this.images.length > 0) {
+              this.setActive(this.images[0].id);
+            }
+          },
+
+          setActive(id) {
+            this.saveActiveCropData();
+            this.activeId = id;
+            this.initCropper();
+          },
+
+          saveActiveCropData() {
+            if (this.cropper && this.activeId) {
+              const activeImg = this.images.find((i) => i.id === this.activeId);
+              if (activeImg) {
+                activeImg.cropData = this.cropper.getData();
+              }
+            }
+          },
+
+          deleteImage(id) {
+            const idx = this.images.findIndex((i) => i.id === id);
+            if (idx !== -1) {
+              URL.revokeObjectURL(this.images[idx].originalUrl);
+              if (this.images[idx].previewUrl)
+                URL.revokeObjectURL(this.images[idx].previewUrl);
+              this.images.splice(idx, 1);
+
+              if (this.activeId === id) {
+                this.activeId =
+                  this.images.length > 0 ? this.images[0].id : null;
+                this.initCropper();
+              }
+            }
+          },
+
+          clearAll() {
+            this.images.forEach((img) => {
+              URL.revokeObjectURL(img.originalUrl);
+              if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+            });
+            this.images = [];
+            this.activeId = null;
+            if (this.cropper) {
+              this.cropper.destroy();
+              this.cropper = null;
+            }
+          },
+
+          // ALGORITMO INTELIGENTE: Adapta silenciosamente cualquier imagen a la nueva proporción
+          generateSilentDefaultCrop(imgObj) {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = this.targetWidth;
+              canvas.height = this.targetHeight;
+              const ctx = canvas.getContext("2d");
+
+              const srcRatio = img.width / img.height;
+              const destRatio = this.targetWidth / this.targetHeight;
+              let sWidth, sHeight, sx, sy;
+
+              // Recorte adaptativo (Cover) según ancho o alto de forma automática
+              if (srcRatio > destRatio) {
+                sHeight = img.height;
+                sWidth = img.height * destRatio;
+                sx = (img.width - sWidth) / 2;
+                sy = 0;
+              } else {
+                sWidth = img.width;
+                sHeight = img.width / destRatio;
+                sx = 0;
+                sy = (img.height - sHeight) / 2;
+              }
+
+              ctx.drawImage(
+                img,
+                sx,
+                sy,
+                sWidth,
+                sHeight,
+                0,
+                0,
+                this.targetWidth,
+                this.targetHeight,
+              );
+
+              canvas.toBlob(
+                (blob) => {
+                  imgObj.croppedBlob = blob;
+                  if (imgObj.previewUrl) URL.revokeObjectURL(imgObj.previewUrl);
+                  imgObj.previewUrl = URL.createObjectURL(blob);
+                },
+                this.exportFormat,
+                this.exportFormat === "image/png"
+                  ? undefined
+                  : this.exportQuality / 100,
+              );
+            };
+            img.src = imgObj.originalUrl;
+          },
+
+          // Evento gatillado al cambiar las dimensiones
+          onDimensionsChange() {
+            // 1. Limpiamos las coordenadas anteriores para todas las imágenes para recalcularlas de forma inteligente
+            this.images.forEach((img) => {
+              img.cropData = null;
+            });
+            // 2. Regenerar todos los renders con la nueva resolución
+            this.regenerateAll();
+            // 3. Reiniciar el cropper visual de la pantalla de trabajo
+            this.initCropper();
+          },
+
+          regenerateAll() {
+            this.images.forEach((img) => {
+              if (img.id === this.activeId && this.cropper) {
+                this.updateActiveBlob();
+              } else {
+                this.generateSilentDefaultCrop(img);
+              }
+            });
+          },
+
+          debounceTimer: null,
+          regenerateAllDebounced() {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => {
+              this.regenerateAll();
+            }, 150);
+          },
+
+          // Inicializar el espacio interactivo Cropper.js
+          initCropper() {
+            if (this.cropper) {
+              this.cropper.destroy();
+              this.cropper = null;
+            }
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (!activeImg) return;
+
+            this.$nextTick(() => {
+              const imgEl = document.getElementById("cropperImage");
+              if (!imgEl) return;
+
+              // Forzar src limpio antes de montar cropper
+              imgEl.src = activeImg.originalUrl;
+
+              this.cropper = new Cropper(imgEl, {
+                aspectRatio: this.targetWidth / this.targetHeight,
+                viewMode: 1,
+                dragMode: "move",
+                autoCropArea: 1, // El cuadro toma el tamaño máximo por defecto (Cover)
+                cropBoxMovable: false,
+                cropBoxResizable: false,
+                toggleDragModeOnDblclick: false,
+                ready: () => {
+                  imgEl.classList.remove("opacity-0");
+                  if (activeImg.cropData) {
+                    this.cropper.setData(activeImg.cropData);
+                  } else {
+                    // Si no hay datos, actualiza la primera muestra adaptada
+                    this.updateActiveBlob();
+                  }
+                },
+                cropend: () => this.updateActiveBlob(),
+                zoom: () => this.updateActiveBlob(),
+              });
+            });
+          },
+
+          updateActiveBlob() {
+            if (!this.cropper || !this.activeId) return;
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (!activeImg) return;
+
+            const canvas = this.cropper.getCroppedCanvas({
+              width: this.targetWidth,
+              height: this.targetHeight,
+              imageSmoothingEnabled: true,
+              imageSmoothingQuality: "high",
+            });
+
+            canvas.toBlob(
+              (blob) => {
+                activeImg.croppedBlob = blob;
+                if (activeImg.previewUrl)
+                  URL.revokeObjectURL(activeImg.previewUrl);
+                activeImg.previewUrl = URL.createObjectURL(blob);
+              },
+              this.exportFormat,
+              this.exportFormat === "image/png"
+                ? undefined
+                : this.exportQuality / 100,
+            );
+          },
+
+          // Controles del Visualizador
+          zoom(val) {
+            if (this.cropper) this.cropper.zoom(val);
+          },
+          rotate(deg) {
+            if (this.cropper) {
+              this.cropper.rotate(deg);
+              this.updateActiveBlob();
+            }
+          },
+          flip(dir) {
+            if (this.cropper) {
+              if (dir === "h") {
+                this.flipH = -this.flipH;
+                this.cropper.scaleX(this.flipH);
+              } else {
+                this.flipV = -this.flipV;
+                this.cropper.scaleY(this.flipV);
+              }
+              this.updateActiveBlob();
+            }
+          },
+          reset() {
+            if (this.cropper) {
+              this.cropper.reset();
+              this.flipH = 1;
+              this.flipV = 1;
+              this.cropper.scale(1, 1);
+              this.updateActiveBlob();
+            }
+          },
+
+          // Descargas
+          downloadActive() {
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (activeImg && activeImg.croppedBlob) {
+              const ext = this.getExt();
+              this.triggerDownload(
+                activeImg.croppedBlob,
+                `${this.sanitizeName(activeImg.name)}-cropped.${ext}`,
+              );
+            }
+          },
+
+          downloadZip() {
+            if (this.images.length === 0) return;
+            this.saveActiveCropData();
+            this.showLoader(
+              "Generando archivo ZIP",
+              "Redimensionando y empaquetando imágenes optimizadas...",
+            );
+
+            setTimeout(() => {
+              const zip = new JSZip();
+              const ext = this.getExt();
+
+              this.images.forEach((img) => {
+                if (img.croppedBlob) {
+                  zip.file(
+                    `${this.sanitizeName(img.name)}-cropped.${ext}`,
+                    img.croppedBlob,
+                  );
+                }
+              });
+
+              zip
+                .generateAsync({ type: "blob" })
+                .then((blob) => {
+                  this.triggerDownload(
+                    blob,
+                    `smartcrop-batch-${Date.now()}.zip`,
+                  );
+                  this.hideLoader();
+                })
+                .catch((err) => {
+                  console.error(err);
+                  this.hideLoader();
+                });
+            }, 300);
+          },
+
+          getExt() {
+            if (this.exportFormat === "image/webp") return "webp";
+            if (this.exportFormat === "image/jpeg") return "jpg";
+            return "png";
+          },
+          sanitizeName(n) {
+            return n.substring(0, n.lastIndexOf(".")) || n;
+          },
+          triggerDownload(blob, name) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          },
+          showLoader(title, desc) {
+            this.loading = true;
+            this.loadingTitle = title;
+            this.loadingDesc = desc;
+          },
+          hideLoader() {
+            this.loading = false;
+          },
+        }));
+      });
+    </script>
+  </body>
+</html>
