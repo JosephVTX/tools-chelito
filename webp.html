@@ -26,184 +26,171 @@
     </style>
 </head>
 
-<body class="bg-base-300 min-h-screen text-base-content flex flex-col justify-between py-8" x-data="compressorApp()">
+<body class="h-screen bg-base-300 text-base-content flex overflow-hidden" x-data="compressorApp()">
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <main class="container mx-auto px-4 max-w-6xl flex-grow space-y-6">
+    <!-- SIDEBAR LATERAL -->
+    <aside class="w-72 shrink-0 bg-base-100 border-r border-base-200 flex flex-col overflow-hidden">
 
-        <!-- PANEL GLOBAL DE CONFIGURACIÓN -->
-        <div class="card bg-base-100 shadow-xl border border-base-200">
-            <div class="card-body p-6">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="card-title text-base flex items-center gap-2">
-                        <i class="fa-solid fa-sliders text-primary"></i> Ajustes Predeterminados Globales (Para nuevas
-                        imágenes)
-                    </h2>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                    <!-- Calidad WebP Global -->
-                    <div class="space-y-3 bg-base-200 p-4 rounded-xl">
-                        <div class="flex justify-between items-center">
-                            <label class="font-semibold text-xs">Calidad WebP Inicial:</label>
-                            <span class="badge badge-primary font-mono text-xs" x-text="globalQuality + '%'">82%</span>
-                        </div>
-                        <input type="range" min="10" max="100" x-model.number="globalQuality"
-                            class="range range-primary range-xs" />
-                        <div class="flex justify-between text-[10px] text-base-content/50 font-mono px-1">
-                            <span>Menor Peso</span>
-                            <span>Recomendado</span>
-                            <span>Máx Calidad</span>
-                        </div>
-                    </div>
-
-                    <!-- Modo de Redimensión Global -->
-                    <div class="space-y-3 bg-base-200 p-4 rounded-xl">
-                        <label class="font-semibold text-xs block">Redimensión Inicial:</label>
-                        <div class="form-control gap-1">
-                            <label class="label cursor-pointer justify-start gap-2 py-1">
-                                <input type="radio" value="original" x-model="globalResizeMode"
-                                    class="radio radio-primary radio-xs" />
-                                <span class="label-text text-xs">Mantener Tamaño Original (100%)</span>
-                            </label>
-                            <label class="label cursor-pointer justify-start gap-2 py-1">
-                                <input type="radio" value="percent" x-model="globalResizeMode"
-                                    class="radio radio-primary radio-xs" />
-                                <span class="label-text text-xs">Escalar por Porcentaje (%)</span>
-                            </label>
-                            <label class="label cursor-pointer justify-start gap-2 py-1">
-                                <input type="radio" value="custom" x-model="globalResizeMode"
-                                    class="radio radio-primary radio-xs" />
-                                <span class="label-text text-xs">Dimensiones Personalizadas (px)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Opciones Dinámicas Globales -->
-                    <div class="space-y-3 bg-base-200 p-4 rounded-xl flex flex-col justify-center">
-
-                        <div x-show="globalResizeMode === 'percent'" class="space-y-2">
-                            <label class="text-xs font-semibold">Porcentaje de Escala:</label>
-                            <div class="join w-full">
-                                <input type="number" x-model.number="globalPercent" min="1" max="200"
-                                    class="input input-bordered input-sm w-full join-item font-mono" />
-                                <span class="btn btn-sm join-item border-base-300">%</span>
-                            </div>
-                        </div>
-
-                        <div x-show="globalResizeMode === 'custom'" class="space-y-2">
-                            <div class="flex justify-between items-center">
-                                <label class="text-xs font-semibold">Ancho x Alto Predeterminado:</label>
-                                <button type="button" @click="globalKeepAspect = !globalKeepAspect"
-                                    class="btn btn-xs btn-ghost text-primary gap-1">
-                                    <i class="fa-solid" :class="globalKeepAspect ? 'fa-lock' : 'fa-lock-open'"></i>
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="number" x-model.number="globalCustomWidth" placeholder="Ancho (px)"
-                                    class="input input-bordered input-sm w-full font-mono" />
-                                <span class="text-xs text-base-content/50">×</span>
-                                <input type="number" x-model.number="globalCustomHeight" placeholder="Alto (px)"
-                                    class="input input-bordered input-sm w-full font-mono" />
-                            </div>
-                        </div>
-
-                        <div x-show="globalResizeMode === 'original'"
-                            class="text-xs text-base-content/60 text-center italic py-2">
-                            <i class="fa-solid fa-info-circle mr-1"></i> Respetará el tamaño nativo de cada archivo.
-                        </div>
-
-                    </div>
-
-                </div>
-            </div>
+        <div class="px-4 py-3 border-b border-base-200 shrink-0">
+            <h1 class="text-sm font-bold flex items-center gap-2">
+                <i class="fa-solid fa-file-image text-primary"></i> Compresor WebP
+            </h1>
         </div>
 
+        <div class="flex-1 overflow-y-auto p-3 space-y-3">
+
+            <!-- Estadísticas -->
+            <div class="stats stats-vertical bg-base-200 shadow-none w-full border border-base-300">
+                <div class="stat py-1.5 px-3">
+                    <div class="stat-title text-[10px]">Imágenes</div>
+                    <div class="stat-value text-base text-primary font-mono" x-text="fileItems.length">0</div>
+                </div>
+                <div class="stat py-1.5 px-3">
+                    <div class="stat-title text-[10px]">Peso Original</div>
+                    <div class="stat-value text-base font-mono" x-text="formatBytes(totalOriginalSize)">0 MB</div>
+                </div>
+                <div class="stat py-1.5 px-3">
+                    <div class="stat-title text-[10px]">Peso WebP</div>
+                    <div class="stat-value text-base text-success font-mono" x-text="formatBytes(totalCompressedSize)">0
+                        MB</div>
+                </div>
+                <div class="stat py-1.5 px-3">
+                    <div class="stat-title text-[10px]">Ahorro</div>
+                    <div class="stat-value text-base text-secondary font-mono" x-text="totalSavings + '%'">0%</div>
+                </div>
+            </div>
+
+            <!-- Ajustes Globales -->
+            <div class="card bg-base-200 rounded-xl border border-base-300 p-3 space-y-3">
+                <h2 class="text-[11px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders"></i> Ajustes Globales
+                </h2>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold">Calidad WebP</label>
+                        <span class="badge badge-primary badge-sm font-mono text-[10px]"
+                            x-text="globalQuality + '%'">82%</span>
+                    </div>
+                    <input type="range" min="10" max="100" x-model.number="globalQuality"
+                        class="range range-primary range-xs w-full" />
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold block">Redimensión Inicial</label>
+                    <div class="form-control gap-0.5">
+                        <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                            <input type="radio" value="original" x-model="globalResizeMode"
+                                class="radio radio-primary radio-xs" />
+                            <span class="label-text text-[11px]">Original (100%)</span>
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                            <input type="radio" value="percent" x-model="globalResizeMode"
+                                class="radio radio-primary radio-xs" />
+                            <span class="label-text text-[11px]">Porcentaje (%)</span>
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                            <input type="radio" value="custom" x-model="globalResizeMode"
+                                class="radio radio-primary radio-xs" />
+                            <span class="label-text text-[11px]">Personalizado (px)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div x-show="globalResizeMode === 'percent'" class="space-y-1">
+                    <label class="text-xs font-semibold">Porcentaje de Escala</label>
+                    <div class="join w-full">
+                        <input type="number" x-model.number="globalPercent" min="1" max="200"
+                            class="input input-bordered input-sm w-full join-item font-mono" />
+                        <span class="btn btn-sm join-item border-base-300">%</span>
+                    </div>
+                </div>
+
+                <div x-show="globalResizeMode === 'custom'" class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold">Ancho × Alto</label>
+                        <button type="button" @click="globalKeepAspect = !globalKeepAspect"
+                            class="btn btn-xs btn-ghost text-primary gap-1">
+                            <i class="fa-solid" :class="globalKeepAspect ? 'fa-lock' : 'fa-lock-open'"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <input type="number" x-model.number="globalCustomWidth" placeholder="Ancho"
+                            class="input input-bordered input-sm w-full font-mono" />
+                        <span class="text-xs font-bold text-base-content/40">×</span>
+                        <input type="number" x-model.number="globalCustomHeight" placeholder="Alto"
+                            class="input input-bordered input-sm w-full font-mono" />
+                    </div>
+                </div>
+
+                <div x-show="globalResizeMode === 'original'" class="text-[11px] text-base-content/60 italic">
+                    <i class="fa-solid fa-info-circle mr-1"></i> Respetará el tamaño nativo.
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="space-y-2">
+                <button @click="applyGlobalToAllFiles()" class="btn btn-outline btn-primary btn-sm w-full gap-2"
+                    :disabled="fileItems.length === 0">
+                    <i class="fa-solid fa-arrows-rotate"></i> Aplicar Globales
+                </button>
+                <button @click="downloadAllZIP()" class="btn btn-success text-white btn-sm w-full gap-2"
+                    :disabled="!hasDoneItems">
+                    <i class="fa-solid fa-file-zipper"></i> Descargar ZIP
+                </button>
+                <button @click="clearAll()" class="btn btn-ghost btn-sm w-full gap-2 text-error">
+                    <i class="fa-solid fa-trash"></i> Limpiar Todo
+                </button>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-3">
+
         <!-- DROPZONE / SUBIDA -->
-        <div class="border-2 border-dashed border-base-content/20 bg-base-100 rounded-2xl p-8 text-center cursor-pointer transition-all hover:border-primary hover:bg-base-200/50 group"
+        <div class="border-2 border-dashed border-base-content/20 bg-base-100 rounded-2xl p-5 text-center cursor-pointer transition-all hover:border-primary hover:bg-base-200/50 group"
             :class="{ 'dropzone-active': isDropzoneActive }" @click="$refs.fileInput.click()"
             @dragover.prevent="isDropzoneActive = true" @dragleave.prevent="isDropzoneActive = false"
             @drop.prevent="isDropzoneActive = false; handleFilesAdded($event.dataTransfer.files)">
 
             <input type="file" x-ref="fileInput" @change="handleFilesAdded($event.target.files)" multiple
                 accept="image/*" class="hidden" />
-            <div class="space-y-3 pointer-events-none">
+            <div class="space-y-2 pointer-events-none">
                 <div
-                    class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                    <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                    class="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
                 </div>
                 <div>
-                    <p class="font-bold text-lg">Arrastra imágenes aquí o haz clic para explorar</p>
-                    <p class="text-xs text-base-content/60 mt-1">PNG, JPG, JPEG, WEBP, AVIF, GIF, BMP, SVG...</p>
+                    <p class="font-bold text-sm">Arrastra imágenes aquí o haz clic</p>
+                    <p class="text-[11px] text-base-content/60 mt-0.5">PNG, JPG, JPEG, WEBP, AVIF, GIF, BMP, SVG...</p>
                 </div>
-                <button class="btn btn-primary btn-sm gap-2">
-                    <i class="fa-solid fa-folder-open"></i> Seleccionar Imágenes
-                </button>
             </div>
         </div>
 
-        <!-- BARRAS DE ESTADÍSTICAS Y ACCIONES GLOBALES -->
-        <div x-show="fileItems.length > 0"
-            class="flex flex-col md:flex-row justify-between items-center gap-4 bg-base-100 p-4 rounded-xl border border-base-200 shadow-md">
-            <div class="stats bg-transparent border-none p-0">
-                <div class="stat p-0 px-4 border-none">
-                    <div class="stat-title text-xs">Imágenes</div>
-                    <div class="stat-value text-xl text-primary font-mono" x-text="fileItems.length">0</div>
-                </div>
-                <div class="stat p-0 px-4 border-none">
-                    <div class="stat-title text-xs">Peso Original</div>
-                    <div class="stat-value text-xl font-mono" x-text="formatBytes(totalOriginalSize)">0 MB</div>
-                </div>
-                <div class="stat p-0 px-4 border-none">
-                    <div class="stat-title text-xs">Peso WebP</div>
-                    <div class="stat-value text-xl text-success font-mono" x-text="formatBytes(totalCompressedSize)">0
-                        MB</div>
-                </div>
-                <div class="stat p-0 px-4 border-none">
-                    <div class="stat-title text-xs">Ahorro Total</div>
-                    <div class="stat-value text-xl text-secondary font-mono" x-text="totalSavings + '%'">0%</div>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-2 w-full md:w-auto">
-                <button @click="applyGlobalToAllFiles()"
-                    class="btn btn-outline btn-primary btn-sm flex-1 md:flex-none gap-2"
-                    title="Aplica la configuración global de arriba a todas las imágenes">
-                    <i class="fa-solid fa-arrows-rotate"></i> Aplicar Ajustes Globales
-                </button>
-                <button @click="downloadAllZIP()" class="btn btn-success text-white btn-sm flex-1 md:flex-none gap-2"
-                    :disabled="!hasDoneItems">
-                    <i class="fa-solid fa-file-zipper"></i> Descargar ZIP
-                </button>
-                <button @click="clearAll()" class="btn btn-ghost btn-sm text-error gap-2">
-                    <i class="fa-solid fa-trash"></i> Limpiar Todo
-                </button>
-            </div>
-        </div>
-
-        <!-- LISTA DE ARCHIVOS CON EDICIÓN INDIVIDUAL -->
-        <div class="space-y-4">
+        <!-- LISTA DE ARCHIVOS -->
+        <div class="space-y-2">
             <template x-for="item in fileItems" :key="item.id">
-                <div class="card bg-base-100 border border-base-200 shadow-md transition-all overflow-hidden">
-                    <div class="p-4">
-                        <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="card bg-base-100 border border-base-200 shadow-sm transition-all overflow-hidden">
+                    <div class="p-3">
+                        <div class="flex flex-col md:flex-row items-center justify-between gap-2">
 
                             <!-- Vista previa y datos iniciales -->
-                            <div class="flex items-center gap-4 w-full md:w-auto">
+                            <div class="flex items-center gap-3 w-full md:w-auto min-w-0">
                                 <div
-                                    class="w-16 h-16 rounded-xl bg-base-300 flex-shrink-0 flex items-center justify-center overflow-hidden border border-base-200 shadow-inner">
+                                    class="w-12 h-12 rounded-lg bg-base-300 flex-shrink-0 flex items-center justify-center overflow-hidden border border-base-200">
                                     <template x-if="item.dataUrl">
                                         <img :src="item.dataUrl" class="object-cover w-full h-full" />
                                     </template>
                                     <template x-if="!item.dataUrl">
-                                        <i class="fa-solid fa-image text-2xl text-base-content/30"></i>
+                                        <i class="fa-solid fa-image text-lg text-base-content/30"></i>
                                     </template>
                                 </div>
-                                <div class="space-y-1">
-                                    <h3 class="font-bold text-sm truncate max-w-xs" :title="item.name"
+                                <div class="space-y-0.5 min-w-0">
+                                    <h3 class="font-bold text-xs truncate max-w-[200px]" :title="item.name"
                                         x-text="item.name"></h3>
-                                    <div class="flex flex-wrap gap-2 text-xs font-mono text-base-content/60">
+                                    <div class="flex flex-wrap gap-1.5 text-[10px] font-mono text-base-content/60">
                                         <span>Orig: <span x-text="formatBytes(item.originalSize)"></span> (<span
                                                 x-text="item.origW"></span>x<span x-text="item.origH"></span>px)</span>
                                     </div>
@@ -211,25 +198,22 @@
                             </div>
 
                             <!-- Resultados de salida y acciones -->
-                            <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                            <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
 
-                                <!-- Estado: Procesando -->
                                 <div x-show="item.status === 'processing'"
-                                    class="flex items-center gap-2 text-primary text-xs font-semibold">
+                                    class="flex items-center gap-1.5 text-primary text-[11px] font-semibold">
                                     <span class="loading loading-spinner loading-xs"></span> Procesando...
                                 </div>
 
-                                <!-- Estado: Error -->
                                 <div x-show="item.status === 'error'"
-                                    class="flex items-center gap-1 text-error text-xs font-bold">
+                                    class="flex items-center gap-1 text-error text-[11px] font-bold">
                                     <i class="fa-solid fa-triangle-exclamation"></i> Error al procesar
                                 </div>
 
-                                <!-- Estado: Finalizado -->
                                 <div x-show="item.status === 'done'" class="text-right font-mono">
-                                    <div class="text-xs text-success font-bold">WebP: <span
+                                    <div class="text-[11px] text-success font-bold">WebP: <span
                                             x-text="formatBytes(item.compressedSize)"></span></div>
-                                    <div class="text-[11px] text-base-content/70"><span x-text="item.compW"></span> ×
+                                    <div class="text-[10px] text-base-content/70"><span x-text="item.compW"></span> ×
                                         <span x-text="item.compH"></span> px</div>
                                     <div class="text-[10px] font-bold"
                                         :class="getItemSavings(item) >= 0 ? 'text-secondary' : 'text-error'">
@@ -238,10 +222,9 @@
                                     </div>
                                 </div>
 
-                                <!-- Botones de Acción -->
                                 <div class="flex items-center gap-1">
                                     <button @click="item.showEditPanel = !item.showEditPanel"
-                                        class="btn btn-circle btn-sm"
+                                        class="btn btn-circle btn-xs"
                                         :class="item.showEditPanel ? 'btn-primary' : 'btn-ghost'"
                                         title="Editar ajustes individuales">
                                         <i class="fa-solid fa-sliders"></i>
@@ -249,13 +232,13 @@
 
                                     <template x-if="item.status === 'done'">
                                         <a :href="item.dataUrl" :download="getWebPFilename(item.name)"
-                                            class="btn btn-circle btn-sm btn-success text-white" title="Descargar WebP">
+                                            class="btn btn-circle btn-xs btn-success text-white" title="Descargar WebP">
                                             <i class="fa-solid fa-download"></i>
                                         </a>
                                     </template>
 
                                     <button @click="removeItem(item.id)"
-                                        class="btn btn-circle btn-sm btn-ghost text-error" title="Eliminar">
+                                        class="btn btn-circle btn-xs btn-ghost text-error" title="Eliminar">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </div>
@@ -265,61 +248,99 @@
                     </div>
 
                     <!-- PANEL COLAPSABLE DE CONFIGURACIÓN INDIVIDUAL -->
-                    <div x-show="item.showEditPanel" class="bg-base-200/70 p-4 border-t border-base-300 space-y-4">
+                    <div x-show="item.showEditPanel" class="bg-base-200/70 p-3 border-t border-base-300 space-y-3">
                         <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-primary flex items-center gap-1">
-                                <i class="fa-solid fa-pen-to-square"></i> Configuración Individual de esta Imagen
+                            <span class="text-[11px] font-bold text-primary flex items-center gap-1">
+                                <i class="fa-solid fa-pen-to-square"></i> Configuración Individual
                             </span>
-                            <button @click="resetItemToOriginal(item)" class="btn btn-xs btn-ghost text-xs">
+                            <button @click="resetItemToOriginal(item)" class="btn btn-xs btn-ghost text-[11px]">
                                 Restablecer a Original
                             </button>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-                            <!-- Ancho x Alto Individual -->
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center">
-                                    <label class="text-xs font-semibold">Dimensiones Personalizadas (px):</label>
-                                    <button @click="item.keepAspect = !item.keepAspect" class="btn btn-xs gap-1"
-                                        :class="item.keepAspect ? 'btn-primary' : 'btn-outline btn-warning'">
-                                        <i class="fa-solid" :class="item.keepAspect ? 'fa-lock' : 'fa-lock-open'"></i>
-                                        <span class="text-[10px]"
-                                            x-text="item.keepAspect ? 'Mantener Proporción' : 'Libre (Deformar)'"></span>
-                                    </button>
+                            <!-- Redimensión Individual -->
+                            <div class="space-y-1.5">
+                                <label class="text-[11px] font-semibold block">Redimensión Inicial:</label>
+                                <div class="form-control gap-0.5">
+                                    <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                                        <input type="radio" value="original" x-model="item.resizeMode"
+                                            @change="item.resizeMode = $event.target.value; applyItemResize(item)"
+                                            class="radio radio-primary radio-xs" />
+                                        <span class="label-text text-[11px]">Mantener Original (100%)</span>
+                                    </label>
+                                    <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                                        <input type="radio" value="percent" x-model="item.resizeMode"
+                                            @change="item.resizeMode = $event.target.value; applyItemResize(item)"
+                                            class="radio radio-primary radio-xs" />
+                                        <span class="label-text text-[11px]">Escalar por Porcentaje (%)</span>
+                                    </label>
+                                    <label class="label cursor-pointer justify-start gap-2 py-0.5 min-h-0">
+                                        <input type="radio" value="custom" x-model="item.resizeMode"
+                                            @change="item.resizeMode = $event.target.value; applyItemResize(item)"
+                                            class="radio radio-primary radio-xs" />
+                                        <span class="label-text text-[11px]">Dimensiones Personalizadas (px)</span>
+                                    </label>
                                 </div>
 
-                                <div class="flex items-center gap-2">
-                                    <div class="form-control w-full">
-                                        <label class="label py-0"><span class="label-text-alt">Ancho (px)</span></label>
-                                        <input type="number" x-model.number="item.targetW"
-                                            @input="onIndivWidthChange(item)"
-                                            class="input input-bordered input-xs w-full font-mono" />
+                                <div x-show="item.resizeMode === 'percent'" class="space-y-1 pt-1">
+                                    <label class="text-[11px] font-semibold">Porcentaje de Escala:</label>
+                                    <div class="join w-full">
+                                        <input type="number" x-model.number="item.percent" min="1" max="200"
+                                            @change="applyItemResize(item)"
+                                            class="input input-bordered input-xs w-full join-item font-mono" />
+                                        <span class="btn btn-xs join-item border-base-300">%</span>
                                     </div>
-                                    <span class="mt-4 text-xs font-bold text-base-content/40">×</span>
-                                    <div class="form-control w-full">
-                                        <label class="label py-0"><span class="label-text-alt">Alto (px)</span></label>
-                                        <input type="number" x-model.number="item.targetH"
-                                            @input="onIndivHeightChange(item)"
-                                            class="input input-bordered input-xs w-full font-mono" />
+                                </div>
+
+                                <div x-show="item.resizeMode === 'custom'" class="space-y-1 pt-1">
+                                    <div class="flex justify-between items-center">
+                                        <label class="text-[11px] font-semibold">Ancho x Alto:</label>
+                                        <button @click="item.keepAspect = !item.keepAspect" class="btn btn-xs gap-1"
+                                            :class="item.keepAspect ? 'btn-primary' : 'btn-outline btn-warning'">
+                                            <i class="fa-solid" :class="item.keepAspect ? 'fa-lock' : 'fa-lock-open'"></i>
+                                            <span class="text-[10px]"
+                                                x-text="item.keepAspect ? 'Mantener Proporción' : 'Libre (Deformar)'"></span>
+                                        </button>
                                     </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="form-control w-full">
+                                            <label class="label py-0"><span class="label-text-alt">Ancho (px)</span></label>
+                                            <input type="number" x-model.number="item.targetW"
+                                                @input="onIndivWidthChange(item)"
+                                                class="input input-bordered input-xs w-full font-mono" />
+                                        </div>
+                                        <span class="mt-4 text-xs font-bold text-base-content/40">×</span>
+                                        <div class="form-control w-full">
+                                            <label class="label py-0"><span class="label-text-alt">Alto (px)</span></label>
+                                            <input type="number" x-model.number="item.targetH"
+                                                @input="onIndivHeightChange(item)"
+                                                class="input input-bordered input-xs w-full font-mono" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div x-show="item.resizeMode === 'original'"
+                                    class="text-[11px] text-base-content/60 italic">
+                                    <i class="fa-solid fa-info-circle mr-1"></i> Respetará el tamaño nativo del archivo.
                                 </div>
                             </div>
 
                             <!-- Calidad Individual -->
-                            <div class="space-y-2">
+                            <div class="space-y-1.5">
                                 <div class="flex justify-between items-center">
-                                    <label class="text-xs font-semibold">Calidad WebP:</label>
-                                    <span class="badge badge-primary font-mono text-xs"
+                                    <label class="text-[11px] font-semibold">Calidad WebP:</label>
+                                    <span class="badge badge-primary font-mono text-[10px]"
                                         x-text="item.quality + '%'"></span>
                                 </div>
                                 <input type="range" min="10" max="100" x-model.number="item.quality"
-                                    class="range range-primary range-xs mt-3" />
+                                    class="range range-primary range-xs mt-2" />
                             </div>
 
                         </div>
 
-                        <div class="flex justify-end pt-2">
+                        <div class="flex justify-end pt-1">
                             <button @click="processSingleItem(item)" class="btn btn-primary btn-xs gap-1">
                                 <i class="fa-solid fa-rotate"></i> Re-convertir Imagen
                             </button>
@@ -380,6 +401,8 @@
                             origH: nativeDims.h,
                             targetW: nativeDims.w,
                             targetH: nativeDims.h,
+                            resizeMode: this.globalResizeMode,
+                            percent: this.globalPercent,
                             keepAspect: this.globalKeepAspect,
                             quality: this.globalQuality,
                             showEditPanel: false,
@@ -421,16 +444,28 @@
 
                 // Cálculo Inicial según Ajustes Globales
                 calculateInitialTargetDims(item) {
+                    item.resizeMode = this.globalResizeMode;
+                    item.percent = this.globalPercent;
+                    item.keepAspect = this.globalKeepAspect;
+                    if (this.globalResizeMode === 'custom') {
+                        item.targetW = parseInt(this.globalCustomWidth) || item.origW || 800;
+                        item.targetH = parseInt(this.globalCustomHeight) || item.origH || 600;
+                    }
+                    this.applyItemResize(item);
+                },
+
+                // Aplica el modo de redimensión individual del item
+                applyItemResize(item) {
                     const origW = item.origW || 800;
                     const origH = item.origH || 600;
 
-                    if (this.globalResizeMode === 'percent') {
-                        const factor = (parseFloat(this.globalPercent) || 100) / 100;
+                    if (item.resizeMode === 'percent') {
+                        const factor = (parseFloat(item.percent) || 100) / 100;
                         item.targetW = Math.max(1, Math.round(origW * factor));
                         item.targetH = Math.max(1, Math.round(origH * factor));
-                    } else if (this.globalResizeMode === 'custom') {
-                        const reqW = parseInt(this.globalCustomWidth);
-                        const reqH = parseInt(this.globalCustomHeight);
+                    } else if (item.resizeMode === 'custom') {
+                        const reqW = parseInt(item.targetW);
+                        const reqH = parseInt(item.targetH);
 
                         if (reqW && !reqH) {
                             item.targetW = reqW;
@@ -440,7 +475,7 @@
                             item.targetW = Math.round((origW / origH) * reqH);
                         } else if (reqW && reqH) {
                             item.targetW = reqW;
-                            item.targetH = this.globalKeepAspect ? Math.round((origH / origW) * reqW) : reqH;
+                            item.targetH = item.keepAspect ? Math.round((origH / origW) * reqW) : reqH;
                         } else {
                             item.targetW = origW;
                             item.targetH = origH;
@@ -449,7 +484,6 @@
                         item.targetW = origW;
                         item.targetH = origH;
                     }
-                    item.keepAspect = this.globalKeepAspect;
                 },
 
                 // Aplicar Globales
@@ -539,6 +573,8 @@
                 },
 
                 resetItemToOriginal(item) {
+                    item.resizeMode = 'original';
+                    item.percent = this.globalPercent;
                     item.targetW = item.origW;
                     item.targetH = item.origH;
                     item.quality = this.globalQuality;
