@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es" class="h-full bg-zinc-950 text-zinc-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tools-chelito</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: "Inter", sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #09090b; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    #tool-frame { transition: opacity 0.15s ease; }
+    #tool-frame.loading { opacity: 0; }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-hidden">
+
+  <!-- Top Nav Bar -->
+  <nav class="flex items-center gap-1 px-3 py-2 bg-zinc-900 border-b border-zinc-800 shrink-0 overflow-x-auto">
+    <span class="text-zinc-500 text-xs font-semibold tracking-wider uppercase mr-2 shrink-0">Tools</span>
+    <div id="tool-tabs" class="flex items-center gap-1"></div>
+    <div class="w-px h-5 bg-zinc-800 mx-2 shrink-0"></div>
+    <button onclick="addToolPrompt()" title="Agregar herramienta manualmente" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors text-sm leading-none">+</button>
+  </nav>
+
+  <!-- Iframe Container -->
+  <div class="flex-1 bg-zinc-950 relative">
+    <iframe id="tool-frame" class="w-full h-full border-0" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads" allow="clipboard-read; clipboard-write"></iframe>
+    <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-zinc-600 gap-3 hidden">
+      <svg class="w-12 h-12 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>
+      <span class="text-sm">Selecciona una herramienta</span>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  TOOLS REGISTRY — add new tools here
+    //  Each entry: { id, name, icon, file }
+    //  If a tools.json exists, it takes precedence over this list.
+    // ============================================================
+    const DEFAULT_TOOLS = [
+      { id: "smartcrop", name: "SmartCrop Pro", icon: "✂️", file: "smart-crop.html" },
+      { id: "webp",     name: "Compresor WebP", icon: "🖼️", file: "webp.html" },
+    ];
+
+    let tools = [...DEFAULT_TOOLS];
+    let activeId = null;
+
+    const tabsEl   = document.getElementById("tool-tabs");
+    const frameEl  = document.getElementById("tool-frame");
+    const emptyEl  = document.getElementById("empty-state");
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem("tools-chelito-tools", JSON.stringify(tools));
+        localStorage.setItem("tools-chelito-active", activeId || "");
+      } catch (e) { /* ignore */ }
+    }
+
+    function loadFromStorage() {
+      try {
+        const saved = localStorage.getItem("tools-chelito-tools");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            tools = parsed;
+          }
+        }
+        return localStorage.getItem("tools-chelito-active") || null;
+      } catch (e) { return null; }
+    }
+
+    async function loadFromJson() {
+      try {
+        const res = await fetch("tools.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          tools = data;
+        }
+      } catch (e) { /* tools.json not found, use defaults */ }
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = tools.map(t => {
+        const isActive = t.id === activeId;
+        const activeCls = isActive
+          ? "bg-indigo-600 text-white shadow-sm"
+          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800";
+        return `<button data-id="${t.id}" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${activeCls}">${t.icon} ${t.name}</button>`;
+      }).join("");
+
+      // Bind clicks
+      tabsEl.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => selectTool(btn.dataset.id));
+      });
+
+      // Show/hide empty state
+      if (activeId) {
+        emptyEl.classList.add("hidden");
+      } else {
+        emptyEl.classList.remove("hidden");
+      }
+    }
+
+    function selectTool(id) {
+      const tool = tools.find(t => t.id === id);
+      if (!tool) return;
+
+      activeId = id;
+      frameEl.classList.add("loading");
+      frameEl.src = tool.file;
+      saveToStorage();
+      renderTabs();
+    }
+
+    frameEl.addEventListener("load", () => {
+      frameEl.classList.remove("loading");
+    });
+
+    function addToolPrompt() {
+      const name = prompt("Nombre de la herramienta:");
+      if (!name || !name.trim()) return;
+      const file = prompt("Archivo HTML (ej: MiHerramienta.html):");
+      if (!file || !file.trim()) return;
+      const icon = prompt("Emoji / icono (ej: 🛠️):") || "🔧";
+      const id = file.replace(/\.html$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+      if (tools.some(t => t.id === id)) {
+        alert("Ya existe una herramienta con ese ID.");
+        return;
+      }
+
+      tools.push({ id, name: name.trim(), icon, file: file.trim() });
+      saveToStorage();
+      renderTabs();
+      selectTool(id);
+    }
+
+    // ============================================================
+    //  INIT
+    // ============================================================
+    (async function init() {
+      await loadFromJson();
+
+      // localStorage overrides tools.json (user customizations stick)
+      const savedActive = loadFromStorage();
+
+      renderTabs();
+
+      if (savedActive && tools.some(t => t.id === savedActive)) {
+        selectTool(savedActive);
+      }
+    })();
+  </script>
+
+</body>
+</html>

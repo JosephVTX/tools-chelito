@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="es" data-theme="light" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartCrop Pro - DaisyUI & Alpine.js</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- DaisyUI CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <!-- Cropper.css -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"
+    />
+    <!-- Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- JSZip -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Cropper.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <!-- Alpine.js -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .cropper-view-box,
+      .cropper-face {
+        border-radius: 4px;
+      }
+      .cropper-line,
+      .cropper-point {
+        background-color: oklch(var(--p));
+      }
+      .cropper-bg {
+        background-image:
+          repeating-linear-gradient(
+            45deg,
+            #18181b 25%,
+            transparent 25%,
+            transparent 75%,
+            #18181b 75%,
+            #18181b
+          ),
+          repeating-linear-gradient(
+            45deg,
+            #18181b 25%,
+            #27272a 25%,
+            #27272a 75%,
+            #18181b 75%,
+            #18181b
+          );
+        background-position:
+          0 0,
+          10px 10px;
+        background-size: 20px 20px;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: oklch(var(--b1));
+      }
+      ::-webkit-scrollbar-thumb {
+        background: oklch(var(--b3));
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: oklch(var(--bc) / 0.3);
+      }
+    </style>
+  </head>
+  <body
+    x-data="cropApp"
+    class="h-full flex flex-col overflow-hidden bg-base-300 text-base-content"
+  >
+    <!-- Header / Navbar DaisyUI -->
+    <header class="navbar bg-base-100 border-b border-base-300 px-4 shrink-0 z-10 justify-between">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-primary text-primary-content rounded-box shadow-lg">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+            <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold leading-tight">SmartCrop</h1>
+          <p class="text-xs text-base-content/60">
+            Recortador inteligente y adaptativo con Alpine.js & DaisyUI
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-base-content/70">Formato:</span>
+          <select
+            x-model="exportFormat"
+            class="select select-bordered select-xs font-medium"
+          >
+            <option value="image/webp">WEBP Optimizado</option>
+            <option value="image/jpeg">JPG Optimizado</option>
+            <option value="image/png">PNG Optimizado</option>
+          </select>
+        </div>
+
+        <div class="divider divider-horizontal my-1 mx-0"></div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-base-content/70">Calidad:</span>
+          <input
+            x-model.number="exportQuality"
+            type="range"
+            min="10"
+            max="100"
+            class="range range-primary range-xs w-24"
+          />
+          <span
+            class="text-xs font-bold w-8 text-right font-mono"
+            x-text="exportQuality + '%'"
+          ></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Workspace Principal -->
+    <main class="flex-1 flex overflow-hidden min-h-0">
+      <!-- Sidebar -->
+      <aside class="w-80 border-r border-base-300 bg-base-200 flex flex-col shrink-0">
+        <!-- Target size inputs -->
+        <div class="p-4 border-b border-base-300 bg-base-100/50">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-3">
+            Dimensiones Objetivo
+          </h2>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-[11px] font-semibold text-base-content/70">Ancho (px)</span>
+              </label>
+              <input
+                x-model.number="targetWidth"
+                type="number"
+                min="10"
+                class="input input-bordered input-xs text-center font-mono"
+              />
+            </div>
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-[11px] font-semibold text-base-content/70">Alto (px)</span>
+              </label>
+              <input
+                x-model.number="targetHeight"
+                type="number"
+                min="10"
+                class="input input-bordered input-xs text-center font-mono"
+              />
+            </div>
+          </div>
+          <!-- Presets Rápidos -->
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <button
+              @click="targetWidth = 295; targetHeight = 320"
+              class="btn btn-xs btn-neutral btn-outline"
+            >
+              Default (295x320)
+            </button>
+            <button
+              @click="targetWidth = 500; targetHeight = 500"
+              class="btn btn-xs btn-neutral btn-outline"
+            >
+              Cuadrado (1:1)
+            </button>
+            <button
+              @click="targetWidth = 1080; targetHeight = 1350"
+              class="btn btn-xs btn-neutral btn-outline"
+            >
+              Retrato (4:5)
+            </button>
+          </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="p-4 border-b border-base-300">
+          <div
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="dragOver = false; handleFiles($event.dataTransfer.files)"
+            :class="dragOver ? 'border-primary bg-primary/10 shadow-lg' : 'border-base-300 bg-base-100 hover:border-primary/50'"
+            class="border-2 border-dashed transition-all duration-200 rounded-box p-5 flex flex-col items-center justify-center text-center cursor-pointer relative"
+            x-data="{ dragOver: false }"
+          >
+            <input
+              type="file"
+              @change="handleFiles($event.target.files)"
+              multiple
+              accept="image/*"
+              class="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            <div class="text-primary mb-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-8 h-8 mx-auto stroke-[1.5]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <span class="text-xs font-bold text-base-content"
+              >Arrastra tus fotos aquí</span
+            >
+            <span class="text-[10px] text-base-content/60 mt-0.5"
+              >Soporta múltiples imágenes</span
+            >
+          </div>
+        </div>
+
+        <!-- List Section Header -->
+        <div class="px-4 py-2 flex items-center justify-between text-base-content/70">
+          <span class="text-[11px] font-bold uppercase tracking-wider"
+            >Archivos (<span x-text="images.length"></span>)</span
+          >
+          <button
+            @click="clearAll"
+            x-show="images.length > 0"
+            class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+          >
+            Limpiar todo
+          </button>
+        </div>
+
+        <!-- Dynamic Image List -->
+        <div class="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+          <template x-if="images.length === 0">
+            <div class="text-center py-8 text-base-content/40">
+              <p class="text-xs">No hay imágenes cargadas</p>
+            </div>
+          </template>
+
+          <template x-for="img in images" :key="img.id">
+            <div
+              :class="img.id === activeId ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-base-300 bg-base-100 hover:bg-base-200'"
+              class="group relative flex items-center gap-3 p-2 rounded-box border cursor-pointer transition-all duration-200"
+            >
+              <!-- Reactive Crop Preview -->
+              <div
+                class="relative w-12 h-14 bg-base-300 rounded overflow-hidden border border-base-300 shrink-0 flex items-center justify-center"
+              >
+                <img
+                  :src="img.previewUrl"
+                  class="object-cover w-full h-full opacity-0 transition-opacity duration-300"
+                  @load="$el.classList.remove('opacity-0')"
+                />
+              </div>
+
+              <!-- Info -->
+              <div class="flex-1 min-w-0" @click="setActive(img.id)">
+                <p
+                  class="text-[11px] font-bold text-base-content truncate pr-6"
+                  :title="img.name"
+                  x-text="img.name"
+                ></p>
+                <p
+                  class="text-[10px] text-base-content/60 mt-0.5"
+                  x-text="(img.file.size / 1024 / 1024).toFixed(2) + ' MB'"
+                ></p>
+              </div>
+
+              <!-- Actions -->
+              <button
+                @click.stop="deleteImage(img.id)"
+                class="btn btn-ghost btn-square btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-2"
+                title="Eliminar imagen"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path
+                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                  />
+                </svg>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Download Panel -->
+        <div class="p-4 border-t border-base-300 bg-base-100/50">
+          <button
+            @click="downloadZip"
+            :disabled="images.length === 0"
+            class="btn btn-primary btn-block btn-sm"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Descargar todo en ZIP
+          </button>
+        </div>
+      </aside>
+
+      <!-- Editor Workspace -->
+      <section class="flex-1 bg-base-300 flex flex-col min-w-0">
+        <!-- Empty State -->
+        <div
+          x-show="!activeId"
+          class="flex-1 flex flex-col items-center justify-center text-base-content/40 p-8"
+        >
+          <div
+            class="p-4 bg-base-200 rounded-full border border-base-300 mb-3 shadow-inner"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8 text-base-content/40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-bold text-base-content/80">
+            Sin vista previa activa
+          </h3>
+          <p class="text-xs text-base-content/50 mt-1 text-center max-w-xs">
+            Arrastra o sube imágenes en el panel izquierdo para comenzar a
+            ajustar los recortes.
+          </p>
+        </div>
+
+        <!-- Interactive Cropper Canvas -->
+        <div
+          x-show="activeId"
+          class="flex-1 flex flex-col min-h-0 relative"
+          style="display: none"
+        >
+          <div
+            class="flex-1 min-h-0 flex items-center justify-center p-6 bg-base-300/50"
+          >
+            <div
+              class="w-full h-full max-h-[60vh] flex items-center justify-center"
+            >
+              <img
+                id="cropperImage"
+                class="max-w-full max-h-full block opacity-0"
+              />
+            </div>
+          </div>
+
+          <!-- Cropper Toolbar DaisyUI -->
+          <div
+            class="px-6 py-3 border-t border-base-300 bg-base-100 flex items-center justify-between shrink-0"
+          >
+            <div class="flex items-center gap-1">
+              <button
+                @click="zoom(0.1)"
+                title="Zoom +"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  <line x1="11" y1="8" x2="11" y2="14" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </button>
+              <button
+                @click="zoom(-0.1)"
+                title="Zoom -"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </button>
+
+              <div class="divider divider-horizontal my-1 mx-0.5"></div>
+
+              <button
+                @click="rotate(-90)"
+                title="Rotar Izquierda"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1.00 10" />
+                </svg>
+              </button>
+              <button
+                @click="rotate(90)"
+                title="Rotar Derecha"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" />
+                </svg>
+              </button>
+
+              <div class="divider divider-horizontal my-1 mx-0.5"></div>
+
+              <button
+                @click="flip('h')"
+                title="Reflejo Horizontal"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2v20" />
+                  <path d="M4 12H2" />
+                  <path d="M10 12H8" />
+                  <path d="M16 12h-2" />
+                  <path d="M22 12h-2" />
+                  <path d="M12 4l-8 8 8 8" />
+                  <path d="M12 4l8 8-8 8" />
+                </svg>
+              </button>
+              <button
+                @click="flip('v')"
+                title="Reflejo Vertical"
+                class="btn btn-ghost btn-square btn-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M22 12H2" />
+                  <path d="M12 4V2" />
+                  <path d="M12 10V8" />
+                  <path d="M12 16v-2" />
+                  <path d="M12 22v-2" />
+                  <path d="M4 12l8-8 8 8" />
+                  <path d="M4 12l8 8 8-8" />
+                </svg>
+              </button>
+
+              <div class="divider divider-horizontal my-1 mx-0.5"></div>
+
+              <button
+                @click="reset"
+                title="Restablecer"
+                class="btn btn-ghost btn-square btn-sm text-error hover:bg-error/10"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <span
+                class="badge badge-neutral text-xs font-mono py-2"
+                x-text="`Salida: ${targetWidth}x${targetHeight} px`"
+              ></span>
+              <button @click="downloadActive" class="btn btn-primary btn-sm">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Descargar este Recorte
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Overlay Loader DaisyUI Modal -->
+    <div
+      x-show="loading"
+      class="modal modal-open bg-black/60 backdrop-blur-sm z-50 transition-all duration-300"
+      style="display: none"
+    >
+      <div
+        class="modal-box bg-base-100 border border-base-300 flex flex-col items-center text-center max-w-xs p-6 shadow-2xl"
+      >
+        <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
+        <h4 class="text-sm font-bold text-base-content" x-text="loadingTitle">
+          Procesando
+        </h4>
+        <p class="text-xs text-base-content/60 mt-1" x-text="loadingDesc">
+          Por favor espera un momento...
+        </p>
+      </div>
+    </div>
+
+    <!-- Application Controller (AlpineJS Component) -->
+    <script>
+      document.addEventListener("alpine:init", () => {
+        Alpine.data("cropApp", () => ({
+          images: [],
+          activeId: null,
+          targetWidth: 295,
+          targetHeight: 320,
+          exportFormat: "image/webp",
+          exportQuality: 85,
+          cropper: null,
+          flipH: 1,
+          flipV: 1,
+          loading: false,
+          loadingTitle: "",
+          loadingDesc: "",
+
+          init() {
+            // Watchers inteligentes de Alpine.js
+            this.$watch("targetWidth", () => this.onDimensionsChange());
+            this.$watch("targetHeight", () => this.onDimensionsChange());
+            this.$watch("exportFormat", () => this.regenerateAll());
+            this.$watch("exportQuality", () => this.regenerateAllDebounced());
+          },
+
+          // Procesamiento de archivos
+          handleFiles(files) {
+            const fileArray = Array.from(files);
+            const imageFiles = fileArray.filter((f) =>
+              f.type.startsWith("image/"),
+            );
+            if (imageFiles.length === 0) return;
+
+            imageFiles.forEach((file) => {
+              const originalUrl = URL.createObjectURL(file);
+              const imgObj = {
+                id: crypto.randomUUID
+                  ? crypto.randomUUID()
+                  : Math.random().toString(36).substring(2, 9),
+                file: file,
+                name: file.name,
+                originalUrl: originalUrl,
+                cropData: null,
+                croppedBlob: null,
+                previewUrl: null,
+              };
+              this.images.push(imgObj);
+
+              // Lógica inteligente de centrado inicial (Cover)
+              this.generateSilentDefaultCrop(imgObj);
+            });
+
+            if (!this.activeId && this.images.length > 0) {
+              this.setActive(this.images[0].id);
+            }
+          },
+
+          setActive(id) {
+            this.saveActiveCropData();
+            this.activeId = id;
+            this.initCropper();
+          },
+
+          saveActiveCropData() {
+            if (this.cropper && this.activeId) {
+              const activeImg = this.images.find((i) => i.id === this.activeId);
+              if (activeImg) {
+                activeImg.cropData = this.cropper.getData();
+              }
+            }
+          },
+
+          deleteImage(id) {
+            const idx = this.images.findIndex((i) => i.id === id);
+            if (idx !== -1) {
+              URL.revokeObjectURL(this.images[idx].originalUrl);
+              if (this.images[idx].previewUrl)
+                URL.revokeObjectURL(this.images[idx].previewUrl);
+              this.images.splice(idx, 1);
+
+              if (this.activeId === id) {
+                this.activeId =
+                  this.images.length > 0 ? this.images[0].id : null;
+                this.initCropper();
+              }
+            }
+          },
+
+          clearAll() {
+            this.images.forEach((img) => {
+              URL.revokeObjectURL(img.originalUrl);
+              if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+            });
+            this.images = [];
+            this.activeId = null;
+            if (this.cropper) {
+              this.cropper.destroy();
+              this.cropper = null;
+            }
+          },
+
+          // Adapta cualquier imagen a la nueva proporción
+          generateSilentDefaultCrop(imgObj) {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = this.targetWidth;
+              canvas.height = this.targetHeight;
+              const ctx = canvas.getContext("2d");
+
+              const srcRatio = img.width / img.height;
+              const destRatio = this.targetWidth / this.targetHeight;
+              let sWidth, sHeight, sx, sy;
+
+              if (srcRatio > destRatio) {
+                sHeight = img.height;
+                sWidth = img.height * destRatio;
+                sx = (img.width - sWidth) / 2;
+                sy = 0;
+              } else {
+                sWidth = img.width;
+                sHeight = img.width / destRatio;
+                sx = 0;
+                sy = (img.height - sHeight) / 2;
+              }
+
+              ctx.drawImage(
+                img,
+                sx,
+                sy,
+                sWidth,
+                sHeight,
+                0,
+                0,
+                this.targetWidth,
+                this.targetHeight,
+              );
+
+              canvas.toBlob(
+                (blob) => {
+                  imgObj.croppedBlob = blob;
+                  if (imgObj.previewUrl) URL.revokeObjectURL(imgObj.previewUrl);
+                  imgObj.previewUrl = URL.createObjectURL(blob);
+                },
+                this.exportFormat,
+                this.exportFormat === "image/png"
+                  ? undefined
+                  : this.exportQuality / 100,
+              );
+            };
+            img.src = imgObj.originalUrl;
+          },
+
+          onDimensionsChange() {
+            this.images.forEach((img) => {
+              img.cropData = null;
+            });
+            this.regenerateAll();
+            this.initCropper();
+          },
+
+          regenerateAll() {
+            this.images.forEach((img) => {
+              if (img.id === this.activeId && this.cropper) {
+                this.updateActiveBlob();
+              } else {
+                this.generateSilentDefaultCrop(img);
+              }
+            });
+          },
+
+          debounceTimer: null,
+          regenerateAllDebounced() {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => {
+              this.regenerateAll();
+            }, 150);
+          },
+
+          // Inicializa Cropper.js
+          initCropper() {
+            if (this.cropper) {
+              this.cropper.destroy();
+              this.cropper = null;
+            }
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (!activeImg) return;
+
+            this.$nextTick(() => {
+              const imgEl = document.getElementById("cropperImage");
+              if (!imgEl) return;
+
+              imgEl.src = activeImg.originalUrl;
+
+              this.cropper = new Cropper(imgEl, {
+                aspectRatio: this.targetWidth / this.targetHeight,
+                viewMode: 1,
+                dragMode: "move",
+                autoCropArea: 1,
+                cropBoxMovable: false,
+                cropBoxResizable: false,
+                toggleDragModeOnDblclick: false,
+                ready: () => {
+                  imgEl.classList.remove("opacity-0");
+                  if (activeImg.cropData) {
+                    this.cropper.setData(activeImg.cropData);
+                  } else {
+                    this.updateActiveBlob();
+                  }
+                },
+                cropend: () => this.updateActiveBlob(),
+                zoom: () => this.updateActiveBlob(),
+              });
+            });
+          },
+
+          updateActiveBlob() {
+            if (!this.cropper || !this.activeId) return;
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (!activeImg) return;
+
+            const canvas = this.cropper.getCroppedCanvas({
+              width: this.targetWidth,
+              height: this.targetHeight,
+              imageSmoothingEnabled: true,
+              imageSmoothingQuality: "high",
+            });
+
+            canvas.toBlob(
+              (blob) => {
+                activeImg.croppedBlob = blob;
+                if (activeImg.previewUrl)
+                  URL.revokeObjectURL(activeImg.previewUrl);
+                activeImg.previewUrl = URL.createObjectURL(blob);
+              },
+              this.exportFormat,
+              this.exportFormat === "image/png"
+                ? undefined
+                : this.exportQuality / 100,
+            );
+          },
+
+          // Controles de Cropper
+          zoom(val) {
+            if (this.cropper) this.cropper.zoom(val);
+          },
+          rotate(deg) {
+            if (this.cropper) {
+              this.cropper.rotate(deg);
+              this.updateActiveBlob();
+            }
+          },
+          flip(dir) {
+            if (this.cropper) {
+              if (dir === "h") {
+                this.flipH = -this.flipH;
+                this.cropper.scaleX(this.flipH);
+              } else {
+                this.flipV = -this.flipV;
+                this.cropper.scaleY(this.flipV);
+              }
+              this.updateActiveBlob();
+            }
+          },
+          reset() {
+            if (this.cropper) {
+              this.cropper.reset();
+              this.flipH = 1;
+              this.flipV = 1;
+              this.cropper.scale(1, 1);
+              this.updateActiveBlob();
+            }
+          },
+
+          // Descargas
+          downloadActive() {
+            const activeImg = this.images.find((i) => i.id === this.activeId);
+            if (activeImg && activeImg.croppedBlob) {
+              const ext = this.getExt();
+              this.triggerDownload(
+                activeImg.croppedBlob,
+                `${this.sanitizeName(activeImg.name)}-cropped.${ext}`,
+              );
+            }
+          },
+
+          downloadZip() {
+            if (this.images.length === 0) return;
+            this.saveActiveCropData();
+            this.showLoader(
+              "Generando archivo ZIP",
+              "Redimensionando y empaquetando imágenes optimizadas...",
+            );
+
+            setTimeout(() => {
+              const zip = new JSZip();
+              const ext = this.getExt();
+
+              this.images.forEach((img) => {
+                if (img.croppedBlob) {
+                  zip.file(
+                    `${this.sanitizeName(img.name)}-cropped.${ext}`,
+                    img.croppedBlob,
+                  );
+                }
+              });
+
+              zip
+                .generateAsync({ type: "blob" })
+                .then((blob) => {
+                  this.triggerDownload(
+                    blob,
+                    `smartcrop-batch-${Date.now()}.zip`,
+                  );
+                  this.hideLoader();
+                })
+                .catch((err) => {
+                  console.error(err);
+                  this.hideLoader();
+                });
+            }, 300);
+          },
+
+          getExt() {
+            if (this.exportFormat === "image/webp") return "webp";
+            if (this.exportFormat === "image/jpeg") return "jpg";
+            return "png";
+          },
+          sanitizeName(n) {
+            return n.substring(0, n.lastIndexOf(".")) || n;
+          },
+          triggerDownload(blob, name) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+          },
+          showLoader(title, desc) {
+            this.loading = true;
+            this.loadingTitle = title;
+            this.loadingDesc = desc;
+          },
+          hideLoader() {
+            this.loading = false;
+          },
+        }));
+      });
+    </script>
+  </body>
+</html>

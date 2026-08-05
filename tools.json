@@ -1,0 +1,4 @@
+[
+  { "id": "smartcrop", "name": "SmartCrop Pro", "icon": "✂️", "file": "smart-crop.html" },
+  { "id": "webp", "name": "Compresor WebP", "icon": "🖼️", "file": "webp.html" }
+]
