@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>tools-chelito</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -21,11 +22,8 @@
 <body class="h-full flex flex-col overflow-hidden">
 
   <!-- Top Nav Bar -->
-  <nav class="flex items-center gap-1 px-3 py-2 bg-zinc-900 border-b border-zinc-800 shrink-0 overflow-x-auto">
-    <span class="text-zinc-500 text-xs font-semibold tracking-wider uppercase mr-2 shrink-0">Tools</span>
-    <div id="tool-tabs" class="flex items-center gap-1"></div>
-    <div class="w-px h-5 bg-zinc-800 mx-2 shrink-0"></div>
-    <button onclick="addToolPrompt()" title="Agregar herramienta manualmente" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors text-sm leading-none">+</button>
+  <nav class="flex items-stretch h-10 bg-white border-b border-zinc-200 shrink-0 overflow-x-auto">
+    <div id="tool-tabs" class="flex items-stretch"></div>
   </nav>
 
   <!-- Iframe Container -->
@@ -44,8 +42,8 @@
     //  If a tools.json exists, it takes precedence over this list.
     // ============================================================
     const DEFAULT_TOOLS = [
-      { id: "smartcrop", name: "SmartCrop Pro", icon: "✂️", file: "smart-crop.html" },
-      { id: "webp",     name: "Compresor WebP", icon: "🖼️", file: "webp.html" },
+      { id: "webp",     name: "Compresor WebP", icon: "fa-solid fa-image", file: "webp.html" },
+      { id: "smartcrop", name: "SmartCrop Pro", icon: "fa-solid fa-scissors", file: "smart-crop.html" },
     ];
 
     let tools = [...DEFAULT_TOOLS];
@@ -57,20 +55,12 @@
 
     function saveToStorage() {
       try {
-        localStorage.setItem("tools-chelito-tools", JSON.stringify(tools));
         localStorage.setItem("tools-chelito-active", activeId || "");
       } catch (e) { /* ignore */ }
     }
 
     function loadFromStorage() {
       try {
-        const saved = localStorage.getItem("tools-chelito-tools");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            tools = parsed;
-          }
-        }
         return localStorage.getItem("tools-chelito-active") || null;
       } catch (e) { return null; }
     }
@@ -86,13 +76,17 @@
       } catch (e) { /* tools.json not found, use defaults */ }
     }
 
+    function iconHtml(icon = "") {
+      return icon.startsWith("fa") ? `<i class="${icon}"></i>` : `<span>${icon}</span>`;
+    }
+
     function renderTabs() {
       tabsEl.innerHTML = tools.map(t => {
         const isActive = t.id === activeId;
         const activeCls = isActive
-          ? "bg-indigo-600 text-white shadow-sm"
-          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800";
-        return `<button data-id="${t.id}" class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${activeCls}">${t.icon} ${t.name}</button>`;
+          ? "bg-indigo-50 text-indigo-600 border-indigo-500"
+          : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100";
+        return `<button data-id="${t.id}" class="shrink-0 flex items-center gap-1.5 px-2 text-xs font-medium transition-colors whitespace-nowrap border-b-2 border-transparent ${activeCls}">${iconHtml(t.icon)} ${t.name}</button>`;
       }).join("");
 
       // Bind clicks
@@ -123,38 +117,22 @@
       frameEl.classList.remove("loading");
     });
 
-    function addToolPrompt() {
-      const name = prompt("Nombre de la herramienta:");
-      if (!name || !name.trim()) return;
-      const file = prompt("Archivo HTML (ej: MiHerramienta.html):");
-      if (!file || !file.trim()) return;
-      const icon = prompt("Emoji / icono (ej: 🛠️):") || "🔧";
-      const id = file.replace(/\.html$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
-      if (tools.some(t => t.id === id)) {
-        alert("Ya existe una herramienta con ese ID.");
-        return;
-      }
-
-      tools.push({ id, name: name.trim(), icon, file: file.trim() });
-      saveToStorage();
-      renderTabs();
-      selectTool(id);
-    }
-
     // ============================================================
     //  INIT
     // ============================================================
     (async function init() {
       await loadFromJson();
+      localStorage.removeItem("tools-chelito-tools");
 
-      // localStorage overrides tools.json (user customizations stick)
+      // localStorage only stores the active tool id (tools come from tools.json)
       const savedActive = loadFromStorage();
 
       renderTabs();
 
       if (savedActive && tools.some(t => t.id === savedActive)) {
         selectTool(savedActive);
+      } else {
+        selectTool("webp");
       }
     })();
   </script>

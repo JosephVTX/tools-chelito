@@ -1,4 +1,4 @@
 [
-  { "id": "smartcrop", "name": "SmartCrop Pro", "icon": "✂️", "file": "smart-crop.html" },
-  { "id": "webp", "name": "Compresor WebP", "icon": "🖼️", "file": "webp.html" }
+  { "id": "webp", "name": "Compresor WebP", "icon": "fa-solid fa-image", "file": "webp.html" },
+  { "id": "smartcrop", "name": "SmartCrop Pro", "icon": "fa-solid fa-scissors", "file": "smart-crop.html" }
 ]
