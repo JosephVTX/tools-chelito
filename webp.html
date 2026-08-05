@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compresor Masivo e Individual a WebP - Studio Ultra</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- DaisyUI CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <!-- Font Awesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- JSZip & FileSaver -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        .dropzone-active {
+            border-color: hsl(var(--p)) !important;
+            background-color: hsl(var(--b2) / 0.8) !important;
+        }
+    </style>
+</head>
+
+<body class="bg-base-300 min-h-screen text-base-content flex flex-col justify-between">
+
+    <!-- HEADER -->
+    <header class="navbar bg-base-100 shadow-lg px-6 border-b border-base-200">
+        <div class="flex-1 gap-3 items-center">
+            <div class="bg-primary text-primary-content p-2 rounded-xl">
+                <i class="fa-solid fa-bolt text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold leading-tight">WebP Master Compressor Studio</h1>
+                <p class="text-xs text-base-content/60">Optimización por Lotes y Ajustes Individuales por Imagen</p>
+            </div>
+        </div>
+        <div class="flex-none gap-2">
+            <span class="badge badge-success gap-1 py-3 px-3 text-xs font-semibold">
+                <i class="fa-solid fa-shield-halved"></i> 100% Local y Privado
+            </span>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl flex-grow space-y-6">
+
+        <!-- PANEL GLOBAL DE CONFIGURACIÓN -->
+        <div class="card bg-base-100 shadow-xl border border-base-200">
+            <div class="card-body p-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="card-title text-base flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-primary"></i> Ajustes Predeterminados Globales (Para nuevas
+                        imágenes)
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                    <!-- Calidad WebP Global -->
+                    <div class="space-y-3 bg-base-200 p-4 rounded-xl">
+                        <div class="flex justify-between items-center">
+                            <label class="font-semibold text-xs">Calidad WebP Inicial:</label>
+                            <span id="qualityVal" class="badge badge-primary font-mono text-xs">82%</span>
+                        </div>
+                        <input type="range" id="qualityRange" min="10" max="100" value="82"
+                            class="range range-primary range-xs" />
+                        <div class="flex justify-between text-[10px] text-base-content/50 font-mono px-1">
+                            <span>Menor Peso</span>
+                            <span>Recomendado</span>
+                            <span>Máx Calidad</span>
+                        </div>
+                    </div>
+
+                    <!-- Modo de Redimensión Global -->
+                    <div class="space-y-3 bg-base-200 p-4 rounded-xl">
+                        <label class="font-semibold text-xs block">Redimensión Inicial:</label>
+                        <div class="form-control gap-1">
+                            <label class="label cursor-pointer justify-start gap-2 py-1">
+                                <input type="radio" name="resizeMode" value="original"
+                                    class="radio radio-primary radio-xs" checked />
+                                <span class="label-text text-xs">Mantener Tamaño Original (100%)</span>
+                            </label>
+                            <label class="label cursor-pointer justify-start gap-2 py-1">
+                                <input type="radio" name="resizeMode" value="percent"
+                                    class="radio radio-primary radio-xs" />
+                                <span class="label-text text-xs">Escalar por Porcentaje (%)</span>
+                            </label>
+                            <label class="label cursor-pointer justify-start gap-2 py-1">
+                                <input type="radio" name="resizeMode" value="custom"
+                                    class="radio radio-primary radio-xs" />
+                                <span class="label-text text-xs">Dimensiones Personalizadas (px)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Opciones Dinámicas Globales -->
+                    <div class="space-y-3 bg-base-200 p-4 rounded-xl flex flex-col justify-center">
+
+                        <div id="percentBox" class="hidden space-y-2">
+                            <label class="text-xs font-semibold">Porcentaje de Escala:</label>
+                            <div class="join w-full">
+                                <input type="number" id="percentInput" value="80" min="1" max="200"
+                                    class="input input-bordered input-sm w-full join-item font-mono" />
+                                <span class="btn btn-sm join-item border-base-300">%</span>
+                            </div>
+                        </div>
+
+                        <div id="customPxBox" class="hidden space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-semibold">Ancho x Alto Predeterminado:</label>
+                                <button type="button" id="toggleGlobalAspectBtn"
+                                    class="btn btn-xs btn-ghost text-primary gap-1">
+                                    <i id="globalAspectIcon" class="fa-solid fa-lock"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="globalWidthInput" placeholder="Ancho (px)"
+                                    class="input input-bordered input-sm w-full font-mono" />
+                                <span class="text-xs text-base-content/50">×</span>
+                                <input type="number" id="globalHeightInput" placeholder="Alto (px)"
+                                    class="input input-bordered input-sm w-full font-mono" />
+                            </div>
+                        </div>
+
+                        <div id="originalInfoBox" class="text-xs text-base-content/60 text-center italic py-2">
+                            <i class="fa-solid fa-info-circle mr-1"></i> Respetará el tamaño nativo de cada archivo.
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- DROPZONE / SUBIDA -->
+        <div id="dropzone"
+            class="border-2 border-dashed border-base-content/20 bg-base-100 rounded-2xl p-8 text-center cursor-pointer transition-all hover:border-primary hover:bg-base-200/50 group">
+            <input type="file" id="fileInput" multiple accept="image/*" class="hidden" />
+            <div class="space-y-3 pointer-events-none">
+                <div
+                    class="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-lg">Arrastra imágenes aquí o haz clic para explorar</p>
+                    <p class="text-xs text-base-content/60 mt-1">PNG, JPG, JPEG, WEBP, AVIF, GIF, BMP, SVG...</p>
+                </div>
+                <button class="btn btn-primary btn-sm gap-2">
+                    <i class="fa-solid fa-folder-open"></i> Seleccionar Imágenes
+                </button>
+            </div>
+        </div>
+
+        <!-- BARRAS DE ESTADÍSTICAS Y ACCIONES GLOBALES -->
+        <div id="actionHeader"
+            class="hidden flex flex-col md:flex-row justify-between items-center gap-4 bg-base-100 p-4 rounded-xl border border-base-200 shadow-md">
+            <div class="stats bg-transparent border-none p-0">
+                <div class="stat p-0 px-4 border-none">
+                    <div class="stat-title text-xs">Imágenes</div>
+                    <div id="totalCount" class="stat-value text-xl text-primary font-mono">0</div>
+                </div>
+                <div class="stat p-0 px-4 border-none">
+                    <div class="stat-title text-xs">Peso Original</div>
+                    <div id="totalOriginalSize" class="stat-value text-xl font-mono">0 MB</div>
+                </div>
+                <div class="stat p-0 px-4 border-none">
+                    <div class="stat-title text-xs">Peso WebP</div>
+                    <div id="totalCompressedSize" class="stat-value text-xl text-success font-mono">0 MB</div>
+                </div>
+                <div class="stat p-0 px-4 border-none">
+                    <div class="stat-title text-xs">Ahorro Total</div>
+                    <div id="totalSavings" class="stat-value text-xl text-secondary font-mono">0%</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <button id="applyGlobalToAllBtn" class="btn btn-outline btn-primary btn-sm flex-1 md:flex-none gap-2"
+                    title="Aplica la configuración global de arriba a todas las imágenes">
+                    <i class="fa-solid fa-arrows-rotate"></i> Aplicar Ajustes Globales
+                </button>
+                <button id="downloadZipBtn" class="btn btn-success text-white btn-sm flex-1 md:flex-none gap-2"
+                    disabled>
+                    <i class="fa-solid fa-file-zipper"></i> Descargar ZIP
+                </button>
+                <button id="clearAllBtn" class="btn btn-ghost btn-sm text-error gap-2">
+                    <i class="fa-solid fa-trash"></i> Limpiar Todo
+                </button>
+            </div>
+        </div>
+
+        <!-- LISTA DE ARCHIVOS CON EDICIÓN INDIVIDUAL -->
+        <div id="fileList" class="space-y-4">
+            <!-- Tarjetas generadas dinámicamente -->
+        </div>
+
+    </main>
+
+    <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-200 text-xs">
+        <p>Compresor WebP Masivo e Individual — 100% Client-Side JS Browser Studio</p>
+    </footer>
+
+    <!-- SCRIPT LÓGICA -->
+    <script>
+        // ESTADO DE LA APLICACIÓN
+        const globalState = {
+            quality: 82,
+            resizeMode: 'original',
+            percent: 80,
+            keepAspectRatio: true,
+            customWidth: null,
+            customHeight: null
+        };
+
+        // Colección de archivos: cada item mantendrá su propia configuración individual
+        let fileItems = [];
+
+        // ELEMENTOS DEL DOM
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const qualityRange = document.getElementById('qualityRange');
+        const qualityVal = document.getElementById('qualityVal');
+        const resizeRadios = document.querySelectorAll('input[name="resizeMode"]');
+        const percentBox = document.getElementById('percentBox');
+        const customPxBox = document.getElementById('customPxBox');
+        const originalInfoBox = document.getElementById('originalInfoBox');
+        const percentInput = document.getElementById('percentInput');
+        const globalWidthInput = document.getElementById('globalWidthInput');
+        const globalHeightInput = document.getElementById('globalHeightInput');
+        const toggleGlobalAspectBtn = document.getElementById('toggleGlobalAspectBtn');
+        const globalAspectIcon = document.getElementById('globalAspectIcon');
+        const actionHeader = document.getElementById('actionHeader');
+        const applyGlobalToAllBtn = document.getElementById('applyGlobalToAllBtn');
+        const downloadZipBtn = document.getElementById('downloadZipBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initEventListeners();
+        });
+
+        function initEventListeners() {
+            // Drag & Drop
+            dropzone.addEventListener('click', () => fileInput.click());
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dropzone-active');
+            });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dropzone-active'));
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dropzone-active');
+                if (e.dataTransfer.files.length) handleFilesAdded(e.dataTransfer.files);
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) handleFilesAdded(e.target.files);
+            });
+
+            // Configuración Global Controles
+            qualityRange.addEventListener('input', (e) => {
+                globalState.quality = parseInt(e.target.value);
+                qualityVal.textContent = `${globalState.quality}%`;
+            });
+
+            resizeRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    globalState.resizeMode = e.target.value;
+                    updateGlobalResizeUI();
+                });
+            });
+
+            percentInput.addEventListener('input', (e) => {
+                globalState.percent = parseFloat(e.target.value) || 100;
+            });
+
+            globalWidthInput.addEventListener('input', (e) => {
+                globalState.customWidth = parseInt(e.target.value) || null;
+            });
+
+            globalHeightInput.addEventListener('input', (e) => {
+                globalState.customHeight = parseInt(e.target.value) || null;
+            });
+
+            toggleGlobalAspectBtn.addEventListener('click', () => {
+                globalState.keepAspectRatio = !globalState.keepAspectRatio;
+                globalAspectIcon.className = globalState.keepAspectRatio ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open';
+            });
+
+            // Botones principales
+            applyGlobalToAllBtn.addEventListener('click', applyGlobalToAllFiles);
+            downloadZipBtn.addEventListener('click', downloadAllZIP);
+            clearAllBtn.addEventListener('click', clearAll);
+        }
+
+        function updateGlobalResizeUI() {
+            percentBox.classList.add('hidden');
+            customPxBox.classList.add('hidden');
+            originalInfoBox.classList.add('hidden');
+
+            if (globalState.resizeMode === 'percent') {
+                percentBox.classList.remove('hidden');
+            } else if (globalState.resizeMode === 'custom') {
+                customPxBox.classList.remove('hidden');
+            } else {
+                originalInfoBox.classList.remove('hidden');
+            }
+        }
+
+        // MANEJO DE NUEVOS ARCHIVOS
+        async function handleFilesAdded(fileListObj) {
+            const validFiles = Array.from(fileListObj).filter(f => f.type.startsWith('image/'));
+            if (!validFiles.length) return;
+
+            for (let file of validFiles) {
+                // Leer dimensiones nativas primero
+                const nativeDims = await getImageDimensions(file);
+
+                const item = {
+                    id: 'img_' + Math.random().toString(36).substr(2, 9),
+                    file: file,
+                    name: file.name,
+                    originalSize: file.size,
+                    origW: nativeDims.w,
+                    origH: nativeDims.h,
+
+                    // Ajustes propios por imagen (inicialmente heredados del panel global)
+                    targetW: nativeDims.w,
+                    targetH: nativeDims.h,
+                    keepAspect: true,
+                    quality: globalState.quality,
+                    showEditPanel: false, // Estado UI colapsable
+
+                    // Resultados
+                    compressedBlob: null,
+                    compressedSize: 0,
+                    compW: 0,
+                    compH: 0,
+                    status: 'pending',
+                    dataUrl: null
+                };
+
+                // Calcular tamaño objetivo según ajustes globales
+                calculateInitialTargetDims(item);
+                fileItems.push(item);
+
+                // Procesar la imagen recién agregada
+                processSingleItem(item);
+            }
+
+            actionHeader.classList.remove('hidden');
+            renderFileList();
+        }
+
+        // OBTENER DIMENSIONES NATIVAS DE IMAGEN
+        function getImageDimensions(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => resolve({ w: img.width, h: img.height });
+                    img.onerror = () => resolve({ w: 800, h: 600 });
+                };
+            });
+        }
+
+        function calculateInitialTargetDims(item) {
+            if (globalState.resizeMode === 'percent') {
+                const factor = globalState.percent / 100;
+                item.targetW = Math.round(item.origW * factor);
+                item.targetH = Math.round(item.origH * factor);
+            } else if (globalState.resizeMode === 'custom') {
+                const reqW = globalState.customWidth;
+                const reqH = globalState.customHeight;
+                if (reqW && !reqH) {
+                    item.targetW = reqW;
+                    item.targetH = Math.round((item.origH / item.origW) * reqW);
+                } else if (!reqW && reqH) {
+                    item.targetH = reqH;
+                    item.targetW = Math.round((item.origW / item.origH) * reqH);
+                } else if (reqW && reqH) {
+                    item.targetW = reqW;
+                    item.targetH = globalState.keepAspectRatio ? Math.round((item.origH / item.origW) * reqW) : reqH;
+                }
+            } else {
+                item.targetW = item.origW;
+                item.targetH = item.origH;
+            }
+            item.keepAspect = globalState.keepAspectRatio;
+        }
+
+        // APLICAR AJUSTES GLOBALES A TODOS LOS ARCHIVOS
+        async function applyGlobalToAllFiles() {
+            for (let item of fileItems) {
+                item.quality = globalState.quality;
+                calculateInitialTargetDims(item);
+                await processSingleItem(item);
+            }
+            renderFileList();
+        }
+
+        // PROCESAR UNA SOLA IMAGEN CON SUS AJUSTES ÚNICOS
+        async function processSingleItem(item) {
+            item.status = 'processing';
+            updateItemCard(item);
+
+            try {
+                await compressCanvas(item);
+                item.status = 'done';
+            } catch (err) {
+                console.error(err);
+                item.status = 'error';
+            }
+
+            updateItemCard(item);
+            updateGlobalStats();
+            downloadZipBtn.disabled = !fileItems.some(f => f.status === 'done');
+        }
+
+        // NÚCLEO CANVAS DE COMPRESIÓN
+        function compressCanvas(item) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(item.file);
+
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, item.targetW);
+                        canvas.height = Math.max(1, item.targetH);
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                        canvas.toBlob((blob) => {
+                            if (!blob) return reject("Error al generar blob WebP");
+                            item.compressedBlob = blob;
+                            item.compressedSize = blob.size;
+                            item.compW = canvas.width;
+                            item.compH = canvas.height;
+                            if (item.dataUrl) URL.revokeObjectURL(item.dataUrl);
+                            item.dataUrl = URL.createObjectURL(blob);
+                            resolve(item);
+                        }, 'image/webp', item.quality / 100);
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+            });
+        }
+
+        // RENDERIZAR LISTA COMPLETA
+        function renderFileList() {
+            fileList.innerHTML = '';
+            fileItems.forEach(item => {
+                const container = document.createElement('div');
+                container.id = item.id;
+                container.className = 'card bg-base-100 border border-base-200 shadow-md transition-all overflow-hidden';
+                container.innerHTML = generateCardHTML(item);
+                fileList.appendChild(container);
+            });
+            updateGlobalStats();
+        }
+
+        function updateItemCard(item) {
+            const container = document.getElementById(item.id);
+            if (container) {
+                container.innerHTML = generateCardHTML(item);
+            }
+        }
+
+        // HTML DE TARJETA CON PANEL DE EDICIÓN INDIVIDUAL
+        function generateCardHTML(item) {
+            const savings = item.compressedSize
+                ? (((item.originalSize - item.compressedSize) / item.originalSize) * 100).toFixed(1)
+                : 0;
+            const newFileName = item.name.substring(0, item.name.lastIndexOf('.')) + '.webp';
+
+            return `
+        <div class="p-4">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Vista previa y datos iniciales -->
+            <div class="flex items-center gap-4 w-full md:w-auto">
+              <div class="w-16 h-16 rounded-xl bg-base-300 flex-shrink-0 flex items-center justify-center overflow-hidden border border-base-200 shadow-inner">
+                ${item.dataUrl
+                    ? `<img src="${item.dataUrl}" class="object-cover w-full h-full" />`
+                    : `<i class="fa-solid fa-image text-2xl text-base-content/30"></i>`}
+              </div>
+              <div class="space-y-1">
+                <h3 class="font-bold text-sm truncate max-w-xs" title="${item.name}">${item.name}</h3>
+                <div class="flex flex-wrap gap-2 text-xs font-mono text-base-content/60">
+                  <span>Orig: ${formatBytes(item.originalSize)} (${item.origW}x${item.origH}px)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resultados de salida y acciones -->
+            <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+              
+              ${item.status === 'processing' ? `
+                <div class="flex items-center gap-2 text-primary text-xs">
+                  <span class="loading loading-spinner loading-xs"></span> Procesando...
+                </div>
+              ` : ''}
+
+              ${item.status === 'done' ? `
+                <div class="text-right font-mono">
+                  <div class="text-xs text-success font-bold">WebP: ${formatBytes(item.compressedSize)}</div>
+                  <div class="text-[11px] text-base-content/70">${item.compW} × ${item.compH} px</div>
+                  <div class="text-[10px] font-bold ${savings >= 0 ? 'text-secondary' : 'text-error'}">
+                    ${savings >= 0 ? `-${savings}%` : `+${Math.abs(savings)}%`}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Botones de Acción -->
+              <div class="flex items-center gap-1">
+                <button onclick="toggleEditPanel('${item.id}')" class="btn btn-circle btn-sm ${item.showEditPanel ? 'btn-primary' : 'btn-ghost'}" title="Editar ajustes individuales">
+                  <i class="fa-solid fa-sliders"></i>
+                </button>
+                ${item.status === 'done' ? `
+                  <a href="${item.dataUrl}" download="${newFileName}" class="btn btn-circle btn-sm btn-success text-white" title="Descargar WebP">
+                    <i class="fa-solid fa-download"></i>
+                  </a>
+                ` : ''}
+                <button onclick="removeItem('${item.id}')" class="btn btn-circle btn-sm btn-ghost text-error" title="Eliminar">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL COLAPSABLE DE CONFIGURACIÓN INDIVIDUAL -->
+        ${item.showEditPanel ? `
+          <div class="bg-base-200/70 p-4 border-t border-base-300 space-y-4">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-primary flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square"></i> Configuración Individual de esta Imagen
+              </span>
+              <button onclick="resetItemToOriginal('${item.id}')" class="btn btn-xs btn-ghost text-xs">
+                Restablecer a Original
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <!-- Ancho x Alto Individual con Aspect Lock -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <label class="text-xs font-semibold">Dimensiones Personalizadas (px):</label>
+                  <button onclick="toggleItemAspect('${item.id}')" class="btn btn-xs ${item.keepAspect ? 'btn-primary' : 'btn-outline btn-warning'} gap-1">
+                    <i class="fa-solid ${item.keepAspect ? 'fa-lock' : 'fa-lock-open'}"></i>
+                    <span class="text-[10px]">${item.keepAspect ? 'Mantener Proporción' : 'Libre (Deformar)'}</span>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <div class="form-control w-full">
+                    <label class="label py-0"><span class="label-text-alt">Ancho (px)</span></label>
+                    <input type="number" id="w_${item.id}" value="${item.targetW}" oninput="onIndivWidthChange('${item.id}', this.value)" class="input input-bordered input-xs w-full font-mono" />
+                  </div>
+                  <span class="mt-4 text-xs font-bold text-base-content/40">×</span>
+                  <div class="form-control w-full">
+                    <label class="label py-0"><span class="label-text-alt">Alto (px)</span></label>
+                    <input type="number" id="h_${item.id}" value="${item.targetH}" oninput="onIndivHeightChange('${item.id}', this.value)" class="input input-bordered input-xs w-full font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Calidad Individual -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <label class="text-xs font-semibold">Calidad WebP:</label>
+                  <span class="badge badge-primary font-mono text-xs">${item.quality}%</span>
+                </div>
+                <input type="range" min="10" max="100" value="${item.quality}" oninput="onIndivQualityChange('${item.id}', this.value)" class="range range-primary range-xs mt-3" />
+              </div>
+
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button onclick="applyAndReconvertItem('${item.id}')" class="btn btn-primary btn-xs gap-1">
+                <i class="fa-solid fa-rotate"></i> Re-convertir Imagen
+              </button>
+            </div>
+          </div>
+        ` : ''}
+      `;
+        }
+
+        // MANEJO EVENTOS INDIVIDUALES
+        window.toggleEditPanel = function (id) {
+            const item = fileItems.find(f => f.id === id);
+            if (item) {
+                item.showEditPanel = !item.showEditPanel;
+                updateItemCard(item);
+            }
+        };
+
+        window.toggleItemAspect = function (id) {
+            const item = fileItems.find(f => f.id === id);
+            if (item) {
+                item.keepAspect = !item.keepAspect;
+                updateItemCard(item);
+            }
+        };
+
+        window.onIndivWidthChange = function (id, val) {
+            const item = fileItems.find(f => f.id === id);
+            if (!item) return;
+            const newW = parseInt(val) || 1;
+            item.targetW = newW;
+
+            if (item.keepAspect && item.origW > 0) {
+                const ratio = item.origH / item.origW;
+                item.targetH = Math.round(newW * ratio);
+                const hInput = document.getElementById(`h_${id}`);
+                if (hInput) hInput.value = item.targetH;
+            }
+        };
+
+        window.onIndivHeightChange = function (id, val) {
+            const item = fileItems.find(f => f.id === id);
+            if (!item) return;
+            const newH = parseInt(val) || 1;
+            item.targetH = newH;
+
+            if (item.keepAspect && item.origH > 0) {
+                const ratio = item.origW / item.origH;
+                item.targetW = Math.round(newH * ratio);
+                const wInput = document.getElementById(`w_${id}`);
+                if (wInput) wInput.value = item.targetW;
+            }
+        };
+
+        window.onIndivQualityChange = function (id, val) {
+            const item = fileItems.find(f => f.id === id);
+            if (item) {
+                item.quality = parseInt(val);
+                // Actualizar visualización del badge en tiempo real
+                const badge = document.querySelector(`#${id} .badge`);
+                if (badge) badge.textContent = `${item.quality}%`;
+            }
+        };
+
+        window.resetItemToOriginal = function (id) {
+            const item = fileItems.find(f => f.id === id);
+            if (item) {
+                item.targetW = item.origW;
+                item.targetH = item.origH;
+                item.quality = globalState.quality;
+                item.keepAspect = true;
+                processSingleItem(item);
+            }
+        };
+
+        window.applyAndReconvertItem = function (id) {
+            const item = fileItems.find(f => f.id === id);
+            if (item) {
+                processSingleItem(item);
+            }
+        };
+
+        window.removeItem = function (id) {
+            fileItems = fileItems.filter(f => f.id !== id);
+            const card = document.getElementById(id);
+            if (card) card.remove();
+            if (!fileItems.length) actionHeader.classList.add('hidden');
+            updateGlobalStats();
+        };
+
+        function clearAll() {
+            fileItems = [];
+            fileList.innerHTML = '';
+            actionHeader.classList.add('hidden');
+            downloadZipBtn.disabled = true;
+            fileInput.value = '';
+            updateGlobalStats();
+        }
+
+        // ESTADÍSTICAS GLOBALES
+        function updateGlobalStats() {
+            const totalCount = fileItems.length;
+            let totalOrig = 0;
+            let totalComp = 0;
+
+            fileItems.forEach(f => {
+                totalOrig += f.originalSize || 0;
+                totalComp += f.compressedSize || 0;
+            });
+
+            document.getElementById('totalCount').textContent = totalCount;
+            document.getElementById('totalOriginalSize').textContent = formatBytes(totalOrig);
+            document.getElementById('totalCompressedSize').textContent = formatBytes(totalComp);
+
+            const totalSavingsPct = totalOrig > 0 && totalComp > 0
+                ? (((totalOrig - totalComp) / totalOrig) * 100).toFixed(1)
+                : 0;
+
+            document.getElementById('totalSavings').textContent = `${totalSavingsPct}%`;
+        }
+
+        // EXPORTACIÓN A ZIP
+        async function downloadAllZIP() {
+            const zip = new JSZip();
+            const folder = zip.folder("imagenes-webp");
+
+            fileItems.forEach(item => {
+                if (item.status === 'done' && item.compressedBlob) {
+                    const cleanName = item.name.substring(0, item.name.lastIndexOf('.')) + '.webp';
+                    folder.file(cleanName, item.compressedBlob);
+                }
+            });
+
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            saveAs(zipBlob, "imagenes_optimizadas_webp.zip");
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!bytes || bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+
+</html>
